@@ -21,7 +21,10 @@ else they can easily impersonate you using a tool like Staffeli.
 Unfortunately, to the best of our knowledge, Canvas has no means to
 segregate or specialize tokens, so this is really "all or nothing".
 
+Install required libraries
+--------------------------
 
+    $ pip3 install -r requirements.txt
 
 Fetch Submissions for an Assignment
 -----------------------------------
