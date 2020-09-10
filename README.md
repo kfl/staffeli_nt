@@ -28,4 +28,4 @@ Fetch Submissions for an Assignment
 
 Use `download.py <course_id> <template.yaml> <assignment-dir>`. For instance, to fetch all submissions for "ass1":
 
-    $ ./download.py 42376 ass1-template.yml ass1
+    $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1
