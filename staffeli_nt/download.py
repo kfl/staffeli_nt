@@ -16,8 +16,9 @@ def digest(data):
     return hashlib.sha256(data).digest()
 
 if __name__ == '__main__':
-    path_template = sys.argv[1]
-    path_destination = sys.argv[2]
+    course_id = sys.argv[1]
+    path_template = sys.argv[2]
+    path_destination = sys.argv[3]
     path_token = os.path.join(
         str(Path.home()),
         '.canvas.token'
@@ -35,7 +36,7 @@ if __name__ == '__main__':
 
 
     canvas = Canvas(API_URL, API_KEY)
-    course = canvas.get_course(39055)
+    course = canvas.get_course(course_id)
 
     assignments = sorted(
         list(course.get_assignments()),
@@ -57,35 +58,33 @@ if __name__ == '__main__':
 
     for i, submission in enumerate(submissions):
         user = course.get_user(submission.user_id)
-        attr = user.attributes
-        uid  = str(attr['id'])
 
         # add to participant list
         participants.append(
             create_student(
-                attr
+                user
             )
         )
 
-        try:
-            # download every attachment
+        if hasattr(submission, 'attachments'):
+            # collect which attachments to download
             files = [s for s in submission.attachments]
 
             # tag entire handin
             uuid = sorted([a['uuid'] for a in files])
             uuid = '-'.join(uuid)
             try:
-                handins[uuid]['students'].append(user.attributes)
+                handins[uuid]['students'].append(user)
             except KeyError:
                 handins[uuid] = {
                     'files': files,
-                    'students': [user.attributes]
+                    'students': [user]
                 }
-            print('UUID:', uuid)
+            print(f'Handin from {user.name} UUID: {uuid}')
 
-        except AttributeError:
+        else:
             # empty handin
-            empty_handins.append(user.attributes)
+            empty_handins.append(user)
 
     # create submissions directory structure
     home = path_destination
@@ -96,10 +95,10 @@ if __name__ == '__main__':
     # fetch every handin
     print('Downloading attachments')
     for (uuid, handin) in handins.items():
-        print('Download:', uuid)
+        print(f'Downloading: {uuid}')
 
         # create submission directory
-        name = '-'.join([str(u['id']) for u in handin['students']])
+        name = '-'.join([str(u.id) for u in handin['students']])
         base = os.path.join(home, name)
         os.mkdir(base)
 

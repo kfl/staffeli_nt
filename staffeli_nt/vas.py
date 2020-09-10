@@ -274,9 +274,9 @@ def parse_sheet(data):
 
 def create_student(student):
     return Student(
-        id=student['id'],
-        name=student['name'],
-        login=student['login_id']
+        id=student.id,
+        name=student.name,
+        login=student.login_id
     )
 
 def create_solution(task):
