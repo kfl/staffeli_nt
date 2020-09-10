@@ -15,6 +15,9 @@ from util import *
 def digest(data):
     return hashlib.sha256(data).digest()
 
+def kuid(login_id):
+    return login_id.split('@', maxsplit=1)[0]
+
 if __name__ == '__main__':
     course_id = sys.argv[1]
     path_template = sys.argv[2]
@@ -51,6 +54,7 @@ if __name__ == '__main__':
     assignment = assignments[index]
     print('Fetching:', assignment)
 
+
     handins = {}
     participants = []
     empty_handins = []
@@ -58,7 +62,6 @@ if __name__ == '__main__':
 
     for i, submission in enumerate(submissions):
         user = course.get_user(submission.user_id)
-
         # add to participant list
         participants.append(
             create_student(
@@ -67,6 +70,7 @@ if __name__ == '__main__':
         )
 
         if hasattr(submission, 'attachments'):
+            print(f'User {user.name} handed in something')
             # collect which attachments to download
             files = [s for s in submission.attachments]
 
@@ -80,7 +84,7 @@ if __name__ == '__main__':
                     'files': files,
                     'students': [user]
                 }
-            print(f'Handin from {user.name} UUID: {uuid}')
+#            print(f'Handin from {user.name} UUID: {uuid}')
 
         else:
             # empty handin
@@ -93,12 +97,13 @@ if __name__ == '__main__':
     os.mkdir(home)
 
     # fetch every handin
-    print('Downloading attachments')
+    print('Downloading submissions')
     for (uuid, handin) in handins.items():
-        print(f'Downloading: {uuid}')
+        student_names = ', '.join([u.name for u in handin['students']])
+        print(f'Downloading submission from: {student_names}')
 
         # create submission directory
-        name = '-'.join([str(u.id) for u in handin['students']])
+        name = '-'.join([kuid(u.login_id) for u in handin['students']])
         base = os.path.join(home, name)
         os.mkdir(base)
 
@@ -118,12 +123,17 @@ if __name__ == '__main__':
         # remove junk from submission directory
         junk = [
             '.git',
-            '__MACOSX'
+            '__MACOSX',
+            '.stack-work',
+            '.DS_Store'
         ]
+        base_path = Path(base)
         for pattern in junk:
-            pattern = os.path.join(base, pattern)
-            for path in glob.glob(pattern):
-                shutil.rmtree(path)
+            for path in base_path.rglob(pattern):
+                try:
+                    shutil.rmtree(path)
+                except NotADirectoryError:
+                    os.remove(path)
 
 
 
