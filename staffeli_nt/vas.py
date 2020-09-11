@@ -40,7 +40,8 @@ class Assignment:
 
     def format_md(self, sheet):
         assert isinstance(sheet, GradingSheet)
-        assert sheet.is_graded(self), 'can only format graded'
+        if not sheet.is_graded(self):
+            print('trying to format sheet that is not finished graded')
 
         solutions = {}
         for solution in sheet.solutions:
@@ -57,28 +58,26 @@ class Assignment:
 
             form = ''
             form += '# %s\n' % task.title
-            form += '\n'
 
-            grade = solution.get_grade(task)
+            if sheet.is_graded(self):
+                grade = solution.get_grade(task)
 
-            if solution.bonus:
-                form += '%s / %s points (+%s bonus)' % (
-                    grade,
-                    solution.points,
-                    solution.bonus
-                )
-            else:
-                form += '%s / %s points' % (
-                    grade,
-                    solution.points
-                )
-
+                if solution.bonus:
+                    form += '%s / %s points (+%s bonus)' % (
+                        grade,
+                        solution.points,
+                        solution.bonus
+                    )
+                else:
+                    form += '%s / %s points' % (
+                        grade,
+                        solution.points
+                    )
 
             if solution.feedback is not None:
                 feedback = solution.feedback.strip()
 
                 if feedback:
-                    form += '\n'
                     form += '\n'
                     form += feedback
 

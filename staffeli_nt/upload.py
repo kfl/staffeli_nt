@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import tempfile
@@ -136,19 +138,17 @@ if __name__ == '__main__':
             print('No handin for:', uid)
             continue
 
+        if step:
+            print(f'Feedback for {uid}: ')
+            print(tmpl.format_md(sheet))
+            print('-----------------------------------\n')
+            input()
+            print('\n'*2)
+
         # total score
         total = sheet.get_grade(tmpl)
         if total is None:
             continue
-
-        # sanity check
-        _ = handins[uid]
-
-        if step:
-            print(tmpl.format_md(sheet))
-            print('-----------------------------------\n')
-            input()
-            print('\n'*3)
 
         grade(
             submission,
