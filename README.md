@@ -40,7 +40,17 @@ instance, to fetch all submissions for "ass1":
 Upload Feedback and grades
 --------------------------
 
-Use `upload.py <template.yaml> <assignment-dir>`. For
-instance, to fetch all submissions for "ass1":
+Use `upload.py <template.yaml> <assignment-dir> [--live] [--step]`.
+The default to do a *dry run*, that is **not** to upload anything
+unless the `--live` flag is given.
 
-    $ <staffeli_nt_path>/upload.py ass0-template.yml ass0
+For instance, to review all feedback for submissions in the directory
+`ass1` before uploading:
+
+    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --step
+
+
+To upload all feedback for submissions in the directory
+`ass1`:
+
+    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --live
