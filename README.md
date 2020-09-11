@@ -14,7 +14,8 @@ We recommend that you create a local directory ``canvas``,
 clones. Staffeli needs some initial help to be able to login with your
 credentials. You need to [generate a
 token](https://guides.instructure.com/m/4214/l/40399-how-do-i-obtain-an-api-access-token-for-an-account)
-for Staffeli to use, and save it in your home directory  in a file with the name `.canvas.token`.
+for Staffeli to use, and save it in your home directory in a file with
+the name `.canvas.token`.
 
 **NB!** This is your personal token so **do not** share it with others,
 else they can easily impersonate you using a tool like Staffeli.
@@ -26,9 +27,20 @@ Install required libraries
 
     $ pip3 install -r requirements.txt
 
+
 Fetch Submissions for an Assignment
 -----------------------------------
 
-Use `download.py <course_id> <template.yaml> <assignment-dir>`. For instance, to fetch all submissions for "ass1":
+Use `download.py <course_id> <template.yaml> <assignment-dir>`. For
+instance, to fetch all submissions for "ass1":
 
     $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1
+
+
+Upload Feedback and grades
+--------------------------
+
+Use `upload.py <template.yaml> <assignment-dir>`. For
+instance, to fetch all submissions for "ass1":
+
+    $ <staffeli_nt_path>/upload.py ass0-template.yml ass0
