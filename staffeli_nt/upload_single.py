@@ -55,7 +55,7 @@ def grade(submission, grade, path_feedback, dry_run=True):
 if __name__ == '__main__':
     if len(sys.argv) < 4:
         print("Usage: upload_single <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]")
-        return
+        exit(1)
 
     points = sys.argv[1]
     path_meta_yml = sys.argv[2]
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     if not(isfile(path_feedback) and access(path_feedback, R_OK)):
         print(f"File {path_feedback} doesn't exist or isn't readable")
-        return
+        exit(1)
 
     # obtain canvas session
     API_URL = 'https://absalon.ku.dk/'
