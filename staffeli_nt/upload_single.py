@@ -17,11 +17,15 @@ NAME_SHEET = 'grade.yml'
 
 def grade(submission, grade, path_feedback, dry_run=True):
     # bail if dry
-    print('Submit: user_id=%d, grade=%s' % (submission.user_id, grade))
+    print(f'Submit: user_id={submission.user_id}, grade={grade}')
     if dry_run:
         return
 
-    # set grade and load comments
+    print(f'Uploading new feedback for user_id: {submission.user_id}')
+    submission.upload_comment(path_feedback)
+
+    # set grade
+    print(f'Setting grade for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
     # check if feedback is already uploaded
@@ -49,8 +53,6 @@ def grade(submission, grade, path_feedback, dry_run=True):
     #     print('Feedback already uploaded:', submission.user_id)
 
     # else:
-    print('Uploading new feedback:', submission.user_id)
-    submission.upload_comment(path_feedback)
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
