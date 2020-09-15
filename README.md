@@ -54,3 +54,7 @@ To upload all feedback for submissions in the directory
 `ass1`:
 
     $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --live
+
+To upload feedback for a single submission:
+
+    $ upload_single.py <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
