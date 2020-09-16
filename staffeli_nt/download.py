@@ -6,7 +6,7 @@ import glob
 import shutil
 import zipfile
 import hashlib
-
+from zipfile import BadZipFile
 from pathlib import Path
 
 from vas import *
@@ -117,9 +117,14 @@ if __name__ == '__main__':
 
             # unzip attachments
             if attachment['mime_class'] == 'zip':
-                with zipfile.ZipFile(path, 'r') as zip_ref:
-                    zip_ref.extractall(base)
-
+                try:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        try:
+                            zip_ref.extractall(base)
+                        except NotADirectoryError:
+                            print(f"Attempted to unzip into a non-directory: {name}")
+                except BadZipFile:
+                    print(f"Attached archive not a zip-file: {name}")
         # remove junk from submission directory
         junk = [
             '.git',
