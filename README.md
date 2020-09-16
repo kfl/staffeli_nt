@@ -27,6 +27,35 @@ Install required libraries
 
     $ pip3 install -r requirements.txt
 
+Or you can install in a [virtual
+environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
+
+ 1. Create a virtual environment called `env`.
+
+    On macOS and Linux:
+
+        $ python3 -m venv env
+
+    On Windows:
+
+        $ py -m venv env
+
+ 2. Activate `env`
+
+    On macOS and Linux:
+
+        $ source env/bin/activate
+
+    On Windows:
+
+        $ .\env\Scripts\activate
+
+ 3. Now install the requirements for `staffeli_nt` in `env`
+
+        $ pip3 install -r requirements.txt
+
+
+
 
 Fetch Submissions for an Assignment
 -----------------------------------
