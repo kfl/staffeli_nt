@@ -28,31 +28,6 @@ def grade(submission, grade, path_feedback, dry_run=True):
     print(f'Setting grade for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
-    # check if feedback is already uploaded
-    # duplicate = False
-    # for comment in submission.submission_comments:
-    #     try:
-    #         attachments = comment['attachments']
-    #     except KeyError:
-    #         attachments = []
-
-    #     print('Comment with:', len(attachments), 'attachments')
-    #     for attachment in attachments:
-    #         if duplicate:
-    #             break
-
-    #         try:
-    #             contents = download(attachment['url']).decode('utf-8')
-    #         except UnicodeDecodeError:
-    #             contents = ''
-
-    #         duplicate = duplicate or contents.strip() == feedback.strip()
-
-    # # upload feedback if new
-    # if duplicate:
-    #     print('Feedback already uploaded:', submission.user_id)
-
-    # else:
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
