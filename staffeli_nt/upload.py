@@ -17,12 +17,6 @@ def grade(submission, grade, feedback, dry_run=True):
     if dry_run:
         return
 
-    # set grade and load comments
-    if submission.score is None or abs(submission.score - grade) > 0.001:
-        submission.edit(submission={'posted_grade': grade})
-    else:
-        submission.edit()
-
     # check if feedback is already uploaded
     duplicate = False
     for comment in submission.submission_comments:
@@ -55,12 +49,20 @@ def grade(submission, grade, feedback, dry_run=True):
                 f.write(feedback)
             submission.upload_comment(f_path)
 
+
+    # set grade
+    if submission.score is None or abs(submission.score - grade) > 0.001:
+        submission.edit(submission={'posted_grade': grade})
+
+
+
 if __name__ == '__main__':
 
     path_template = sys.argv[1]
     path_submissions = sys.argv[2]
     live = '--live' in sys.argv
     step = '--step' in sys.argv
+
 
     sheets = []
 
@@ -121,6 +123,19 @@ if __name__ == '__main__':
     canvas = Canvas(API_URL, API_KEY)
     course = canvas.get_course(meta.course.id)
     assignment = course.get_assignment(meta.assignment.id)
+    submissions = []
+    section = None
+
+    if meta.assignment.section is not None:
+        section = course.get_section(meta.assignment.section)
+        print(f'Prepare upload for section {section}')
+
+    if section:
+        submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
+                                                       student_ids=['all'])
+    else:
+        submissions = assignment.get_submissions()
+
 
     if live:
         print('Uploading feedback to:', assignment)
@@ -129,11 +144,11 @@ if __name__ == '__main__':
     else:
         print('Doing a dry-run...')
 
-    for submission in assignment.get_submissions():
+    for submission in submissions:
         # get sheet
         try:
             uid = submission.user_id
-            sheet = handins[uid]
+            sheet = handins.pop(uid)
         except KeyError:
             print('No handin for:', uid)
             continue
@@ -147,7 +162,7 @@ if __name__ == '__main__':
 
         # total score
         total = sheet.get_grade(tmpl)
-        if total is None:
+        if total is None and live:
             continue
 
         grade(
@@ -156,3 +171,9 @@ if __name__ == '__main__':
             tmpl.format_md(sheet),
             dry_run = not live
         )
+
+    for sheet in handins.values():
+        students = [ s.name for s in sheet.students ]
+        print(f'Warning: the grade and feedback for {students} is not uploaded.')
+        if section:
+            print(f"        Most likely because they are not in section '{section.name}' (anymore?).")
