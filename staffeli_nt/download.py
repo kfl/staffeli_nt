@@ -6,8 +6,10 @@ import glob
 import shutil
 import zipfile
 import hashlib
+import re
 from zipfile import BadZipFile
 from pathlib import Path
+
 
 from vas import *
 from util import *
@@ -18,6 +20,20 @@ def digest(data):
 def kuid(login_id):
     return login_id.split('@', maxsplit=1)[0]
 
+def smart_key(name):
+   parts = re.findall('[^0-9]+|[0-9]+', name)
+   key = []
+   for part in parts:
+       try:
+          key.append(format(int(part), '05'))
+       except ValueError:
+          key.append(part)
+   return key
+
+def sort_by_name(named):
+    return sorted( list(named), key=lambda x: smart_key(x.name) )
+
+
 if __name__ == '__main__':
     course_id = sys.argv[1]
     path_template = sys.argv[2]
@@ -26,9 +42,10 @@ if __name__ == '__main__':
         str(Path.home()),
         '.canvas.token'
     )
+    select_section = '--select-section' in sys.argv
+
 
     # sanity check
-
     with open(path_template, 'r') as f:
         template = parse_template(f.read())
 
@@ -41,24 +58,41 @@ if __name__ == '__main__':
     canvas = Canvas(API_URL, API_KEY)
     course = canvas.get_course(course_id)
 
-    assignments = sorted(
-        list(course.get_assignments()),
-        key=lambda x: x.name
-    )
+    assignments = sort_by_name(course.get_assignments())
 
+    print('\nAssignments:')
     for n, assignment in enumerate(assignments):
         print('%2d :' % n, assignment.name)
-
-    index = int(input('Which assignment: '))
+    index = int(input('Select assignment: '))
 
     assignment = assignments[index]
-    print('Fetching:', assignment)
 
+    section = None
+    if select_section:
+        sections = sort_by_name(course.get_sections())
+
+        print('\nSections:')
+        for n, section in enumerate(sections):
+            print('%2d :' % n, section.name)
+        index = int(input('Select section: '))
+
+        section = sections[index]
+
+
+    print(f'\nFetching: {assignment}')
+    if select_section:
+        print(f'from {section}')
 
     handins = {}
     participants = []
     empty_handins = []
-    submissions = assignment.get_submissions()
+    submissions = []
+
+    if select_section:
+        submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
+                                                       student_ids=['all'])
+    else:
+        submissions = assignment.get_submissions()
 
     for i, submission in enumerate(submissions):
         user = course.get_user(submission.user_id)
@@ -160,6 +194,6 @@ if __name__ == '__main__':
     with open(meta, 'w') as f:
         meta = Meta(
             course=MetaCourse(course.id, course.name),
-            assignment=MetaAssignment(assignment.id, assignment.name)
+            assignment=MetaAssignment(assignment.id, assignment.name, section=section.id),
         )
         yaml.dump(meta.serialize(), f)
