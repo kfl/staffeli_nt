@@ -2,6 +2,7 @@ import collections
 
 from canvasapi import Canvas
 from ruamel.yaml import YAML
+from typing import Optional
 
 yaml = YAML()
 yaml.indent(mapping=4, sequence=6, offset=3)
@@ -108,16 +109,17 @@ class MetaAssignment:
     id: int
     name: str
 
-    def __init__(self, id: int, name: str):
+    def __init__(self, id: int, name: str, section: Optional[int]):
         self.id = id
         self.name = name
+        self.section = section
 
     def serialize(self):
         return {
             'assignment': collections.OrderedDict([
                 ('id', self.id),
                 ('name', self.name)
-            ])
+            ] + [ ('section', s) for s in [self.section] if s is not None ])
         }
 
 class Meta:
@@ -305,7 +307,8 @@ def parse_meta(data):
 
     assignment = MetaAssignment(
         id=struct['assignment']['id'],
-        name=struct['assignment']['name']
+        name=struct['assignment']['name'],
+        section=struct['assignment'].get('section')
     )
 
     return Meta(course, assignment)
