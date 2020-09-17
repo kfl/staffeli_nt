@@ -87,10 +87,19 @@ if __name__ == '__main__':
     participants = []
     empty_handins = []
     submissions = []
-
+    # if we only need to get a section, we need to filter away
+    # any potential students who are not actively enrolled in the section
+    # (probably due to the student changing sections)
+    # The api seemingly doesn't allow us to filter on the sections.get_multiple_submissions
+    # when using the 'all' argument
+    # so we need to get a list of student-id's and filter it ourselves
     if select_section:
+        student_ids = course.get_users(enrollment_type='student', enrollment_state='active',include=['enrollments'])
+        student_ids = list(filter(lambda x: x.enrollments[0]["course_section_id"] == section.id, student_ids))
+        student_ids = list(map(lambda x: x.id, student_ids))
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=['all'])
+                                                       student_ids=student_ids)
+
     else:
         submissions = assignment.get_submissions()
 
