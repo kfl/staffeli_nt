@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     if meta.assignment.section is not None:
         section = course.get_section(meta.assignment.section,
-                                     include=['students', 'enrollments']])
+                                     include=['students', 'enrollments'])
         print(f'Prepare upload for section {section}')
 
     if section:
