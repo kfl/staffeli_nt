@@ -90,7 +90,8 @@ if __name__ == '__main__':
     submissions = []
 
     if select_section:
-        s_ids = [s['id'] for s in section.students]
+        s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
+                                                            for e in s['enrollments']])]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
                                                        student_ids=s_ids)
     else:

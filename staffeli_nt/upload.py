@@ -128,11 +128,13 @@ if __name__ == '__main__':
 
     if meta.assignment.section is not None:
         section = course.get_section(meta.assignment.section,
-                                     include=['students'])
+                                     include=['students', 'enrollments']])
         print(f'Prepare upload for section {section}')
 
     if section:
-        s_ids = [s['id'] for s in section.students]
+        s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
+                                                            for e in s['enrollments']])]
+#        s_ids = [s['id'] for s in section.students]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
                                                        student_ids=s_ids)
     else:
