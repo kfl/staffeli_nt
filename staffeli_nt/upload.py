@@ -127,12 +127,14 @@ if __name__ == '__main__':
     section = None
 
     if meta.assignment.section is not None:
-        section = course.get_section(meta.assignment.section)
+        section = course.get_section(meta.assignment.section,
+                                     include=['students'])
         print(f'Prepare upload for section {section}')
 
     if section:
+        s_ids = [s['id'] for s in section.students]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=['all'])
+                                                       student_ids=s_ids)
     else:
         submissions = assignment.get_submissions()
 
