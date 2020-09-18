@@ -31,10 +31,12 @@ class Assignment:
     name: str
     tasks: [Task]
     total_points: int
+    passing_points: Optional[int]
 
-    def __init__(self, name: str, tasks: [Task]):
+    def __init__(self, name: str, passing_points: Optional[int], tasks: [Task]):
         self.name = name
         self.tasks = tasks
+        self.passing_points = int(passing_points) if passing_points is not None else None
         self.total_points = 0
         for task in self.tasks:
             self.total_points += task.points
@@ -108,6 +110,7 @@ class MetaCourse:
 class MetaAssignment:
     id: int
     name: str
+    section: Optional[int]
 
     def __init__(self, id: int, name: str, section: Optional[int]):
         self.id = id
@@ -238,7 +241,10 @@ class GradingSheet:
                 total += sol.get_grade(task)
             except TypeError:
                 return None
-        return total
+        if ass.passing_points is not None:
+            return 1 if total >= ass.passing_points else 0
+        else:
+            return total
 
     def is_graded(self, ass: Assignment):
         return self.get_grade(ass) is not None
@@ -331,5 +337,6 @@ def parse_template(data):
 
     return Assignment(
         name = struct['name'],
+        passing_points = struct.get('passing-points'),
         tasks = tasks
     )
