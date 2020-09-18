@@ -76,7 +76,8 @@ if __name__ == '__main__':
             print('%2d :' % n, section.name)
         index = int(input('Select section: '))
 
-        section = sections[index]
+        section = course.get_section(sections[index],
+                                     include=['students', 'enrollments'])
 
 
     print(f'\nFetching: {assignment}')
@@ -89,8 +90,9 @@ if __name__ == '__main__':
     submissions = []
 
     if select_section:
+        s_ids = [s['id'] for s in section.students]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=['all'])
+                                                       student_ids=s_ids)
     else:
         submissions = assignment.get_submissions()
 
