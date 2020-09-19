@@ -87,3 +87,29 @@ To upload all feedback for submissions in the directory
 To upload feedback for a single submission:
 
     $ upload_single.py <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
+
+
+Template format
+---------------
+
+A (minimal) template could look like:
+
+```yaml
+name: Mini asignment
+passing-points: 3
+
+tasks:
+  - overall:
+      title: Overall
+      points: 6
+      rubric: |
+        Some default feedback.
+
+        Your code and report are unreadable.
+
+        Wow, that's really clever.
+```
+
+The field `passing-points` is optional. Adding this field will have
+the effect, that the grade posted is `1` if the total sum of points is
+greater than or equal to `passing-points`, and `0` otherwise.
