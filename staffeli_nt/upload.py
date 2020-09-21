@@ -36,7 +36,8 @@ def grade(submission, grade, feedback, dry_run=True):
 
                         duplicate = duplicate or contents.strip() == feedback.strip()
     except AttributeError:
-        print(repr(submission))
+        print("Internal problem?: It seems that the submission don't have a submission_comments field")
+        print("   ", repr(submission))
 
     # upload feedback if new
     if duplicate:
@@ -173,17 +174,16 @@ if __name__ == '__main__':
                                                                 for e in s['enrollments']])]
             submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
                                                            student_ids=s_ids,
-                                                           include=['user','group','submission_comments'])
+                                                           include=['user','group'])
         else:
-            submissions = assignment.get_submissions(include=['user','group', 'submission_comments'])
+            submissions = assignment.get_submissions(include=['user','group'])
 
 
         for submission in submissions:
             if submission.workflow_state in ['submitted', 'pending_review']:
                 name = submission.user["short_name"]
-                group = submission.group.get("name")
-                group_s = f'({group})' if group else ""
-                print(f'  Submission for {name} ({submission.user_id}) {group_s}: {submission.workflow_state}')
+                group = ''.join(f'({g})' for g in [submission.group.get("name")] if g)
+                print(f'  Submission for {name} ({submission.user_id}) {group}: {submission.workflow_state}')
                 all_graded = False
 
         if all_graded:
