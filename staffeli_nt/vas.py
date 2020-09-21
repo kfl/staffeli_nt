@@ -107,6 +107,9 @@ class MetaCourse:
             ])
         }
 
+    def __repr__(self):
+        return str(self.__dict__)
+
 class MetaAssignment:
     id: int
     name: str
@@ -125,6 +128,10 @@ class MetaAssignment:
             ] + [ ('section', s) for s in [self.section] if s is not None ])
         }
 
+    def __repr__(self):
+        return str(self.__dict__)
+
+
 class Meta:
     def __init__(self, course: MetaCourse, assignment: MetaAssignment):
         self.course = course
@@ -134,6 +141,10 @@ class Meta:
         ser = self.course.serialize()
         ser.update(self.assignment.serialize())
         return ser
+
+    def __repr__(self):
+        return str(self.__dict__)
+
 
 class Student:
     id: int
