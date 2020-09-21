@@ -14,34 +14,38 @@ NAME_SHEET = 'grade.yml'
 def grade(submission, grade, feedback, dry_run=True):
     # bail if dry
     print('Submit: user_id=%d, grade=%s' % (submission.user_id, grade))
-    if dry_run:
-        return
 
     # check if feedback is already uploaded
     duplicate = False
-    for comment in submission.submission_comments:
-        try:
-            attachments = comment['attachments']
-        except KeyError:
-            attachments = []
-
-        print('Comment with:', len(attachments), 'attachments')
-        for attachment in attachments:
-            if duplicate:
-                break
-
+    try:
+        for comment in submission.submission_comments:
             try:
-                contents = download(attachment['url']).decode('utf-8')
-            except UnicodeDecodeError:
-                contents = ''
+                attachments = comment['attachments']
+            except KeyError:
+                attachments = []
 
-            duplicate = duplicate or contents.strip() == feedback.strip()
+                print('Comment with:', len(attachments), 'attachments')
+                for attachment in attachments:
+                    if duplicate:
+                        break
+
+                    try:
+                        contents = download(attachment['url']).decode('utf-8')
+                    except UnicodeDecodeError:
+                        contents = ''
+
+                        duplicate = duplicate or contents.strip() == feedback.strip()
+    except AttributeError:
+        print(repr(submission))
 
     # upload feedback if new
     if duplicate:
         print('Feedback already uploaded:', submission.user_id)
 
-    else:
+    if dry_run:
+        return
+
+    if not duplicate:
         print('Uploading new feedback:', submission.user_id)
         with tempfile.TemporaryDirectory() as c_dir:
             f_path = os.path.join(c_dir, 'feedback.txt')
@@ -139,7 +143,7 @@ if __name__ == '__main__':
         print('Doing a dry-run...')
 
     for stud_id, sheet in handins.items():
-        submission = assignment.get_submission(stud_id)
+        submission = assignment.get_submission(stud_id, include=['submission_comments'])
 
         if step:
             print(f'Feedback for {uid}: ')
@@ -169,9 +173,9 @@ if __name__ == '__main__':
                                                                 for e in s['enrollments']])]
             submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
                                                            student_ids=s_ids,
-                                                           include=['user','group'])
+                                                           include=['user','group','submission_comments'])
         else:
-            submissions = assignment.get_submissions(include=['user','group'])
+            submissions = assignment.get_submissions(include=['user','group', 'submission_comments'])
 
 
         for submission in submissions:
