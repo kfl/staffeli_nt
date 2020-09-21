@@ -197,6 +197,7 @@ if __name__ == '__main__':
     with open(meta, 'w') as f:
         meta = Meta(
             course=MetaCourse(course.id, course.name),
-            assignment=MetaAssignment(assignment.id, assignment.name, section=section.id),
+            assignment=MetaAssignment(assignment.id, assignment.name,
+                                      section=section.id if section else None),
         )
         yaml.dump(meta.serialize(), f)

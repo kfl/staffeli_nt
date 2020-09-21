@@ -62,7 +62,7 @@ if __name__ == '__main__':
     path_submissions = sys.argv[2]
     live = '--live' in sys.argv
     step = '--step' in sys.argv
-
+    warn_missing = '--warn-missing' in sys.argv
 
     sheets = []
 
@@ -131,31 +131,15 @@ if __name__ == '__main__':
                                      include=['students', 'enrollments'])
         print(f'Prepare upload for section {section}')
 
-    if section:
-        s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
-                                                            for e in s['enrollments']])]
-#        s_ids = [s['id'] for s in section.students]
-        submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=s_ids)
-    else:
-        submissions = assignment.get_submissions()
-
-
     if live:
-        print('Uploading feedback to:', assignment)
+        print(f'Uploading feedback for assignment: {assignment.name}')
         choice = input('Sure? (y/n) : ')
         assert choice.strip() == 'y'
     else:
         print('Doing a dry-run...')
 
-    for submission in submissions:
-        # get sheet
-        try:
-            uid = submission.user_id
-            sheet = handins.pop(uid)
-        except KeyError:
-            print('No handin for:', uid)
-            continue
+    for stud_id, sheet in handins.items():
+        submission = assignment.get_submission(stud_id)
 
         if step:
             print(f'Feedback for {uid}: ')
@@ -176,8 +160,29 @@ if __name__ == '__main__':
             dry_run = not live
         )
 
-    for sheet in handins.values():
-        students = [ s.name for s in sheet.students ]
-        print(f'Warning: the grade and feedback for {students} is not uploaded.')
+    if warn_missing:
+        print('\nChecking if some students are missing grades...')
+        all_graded = True
+
         if section:
-            print(f"        Most likely because they are not in section '{section.name}' (anymore?).")
+            s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
+                                                                for e in s['enrollments']])]
+            submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
+                                                           student_ids=s_ids,
+                                                           include=['user','group'])
+        else:
+            submissions = assignment.get_submissions(include=['user','group'])
+
+
+        for submission in submissions:
+            if submission.workflow_state in ['submitted', 'pending_review']:
+                name = submission.user["short_name"]
+                group = submission.group.get("name")
+                group_s = f'({group})' if group else ""
+                print(f'  Submission for {name} ({submission.user_id}) {group_s}: {submission.workflow_state}')
+                all_graded = False
+
+        if all_graded:
+            print("Looks good")
+        else:
+            print("Still work to be done")
