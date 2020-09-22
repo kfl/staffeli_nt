@@ -14,34 +14,39 @@ NAME_SHEET = 'grade.yml'
 def grade(submission, grade, feedback, dry_run=True):
     # bail if dry
     print('Submit: user_id=%d, grade=%s' % (submission.user_id, grade))
-    if dry_run:
-        return
 
     # check if feedback is already uploaded
     duplicate = False
-    for comment in submission.submission_comments:
-        try:
-            attachments = comment['attachments']
-        except KeyError:
-            attachments = []
-
-        print('Comment with:', len(attachments), 'attachments')
-        for attachment in attachments:
-            if duplicate:
-                break
-
+    try:
+        for comment in submission.submission_comments:
             try:
-                contents = download(attachment['url']).decode('utf-8')
-            except UnicodeDecodeError:
-                contents = ''
+                attachments = comment['attachments']
+            except KeyError:
+                attachments = []
 
-            duplicate = duplicate or contents.strip() == feedback.strip()
+                print('Comment with:', len(attachments), 'attachments')
+                for attachment in attachments:
+                    if duplicate:
+                        break
+
+                    try:
+                        contents = download(attachment['url']).decode('utf-8')
+                    except UnicodeDecodeError:
+                        contents = ''
+
+                        duplicate = duplicate or contents.strip() == feedback.strip()
+    except AttributeError:
+        print("Internal problem?: It seems that the submission don't have a submission_comments field")
+        print("   ", repr(submission))
 
     # upload feedback if new
     if duplicate:
         print('Feedback already uploaded:', submission.user_id)
 
-    else:
+    if dry_run:
+        return
+
+    if not duplicate:
         print('Uploading new feedback:', submission.user_id)
         with tempfile.TemporaryDirectory() as c_dir:
             f_path = os.path.join(c_dir, 'feedback.txt')
@@ -139,7 +144,7 @@ if __name__ == '__main__':
         print('Doing a dry-run...')
 
     for stud_id, sheet in handins.items():
-        submission = assignment.get_submission(stud_id)
+        submission = assignment.get_submission(stud_id, include=['submission_comments'])
 
         if step:
             print(f'Feedback for {uid}: ')
@@ -177,9 +182,8 @@ if __name__ == '__main__':
         for submission in submissions:
             if submission.workflow_state in ['submitted', 'pending_review']:
                 name = submission.user["short_name"]
-                group = submission.group.get("name")
-                group_s = f'({group})' if group else ""
-                print(f'  Submission for {name} ({submission.user_id}) {group_s}: {submission.workflow_state}')
+                group = ''.join(f'({g})' for g in [submission.group.get("name")] if g)
+                print(f'  Submission for {name} ({submission.user_id}) {group}: {submission.workflow_state}')
                 all_graded = False
 
         if all_graded:
