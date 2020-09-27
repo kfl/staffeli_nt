@@ -147,7 +147,7 @@ if __name__ == '__main__':
         submission = assignment.get_submission(stud_id, include=['submission_comments'])
 
         if step:
-            print(f'Feedback for {uid}: ')
+            print(f'Feedback for {stud_id}: ')
             print(tmpl.format_md(sheet))
             print('-----------------------------------\n')
             input()
