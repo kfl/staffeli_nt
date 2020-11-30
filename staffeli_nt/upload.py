@@ -146,13 +146,6 @@ if __name__ == '__main__':
     for stud_id, sheet in handins.items():
         submission = assignment.get_submission(stud_id, include=['submission_comments'])
 
-        if step:
-            print(f'Feedback for {stud_id}: ')
-            print(tmpl.format_md(sheet))
-            print('-----------------------------------\n')
-            input()
-            print('\n'*2)
-
         # total score
         total = sheet.get_grade(tmpl)
         if total is None and live:
@@ -164,6 +157,13 @@ if __name__ == '__main__':
             tmpl.format_md(sheet),
             dry_run = not live
         )
+
+        if step:
+            print(f'Feedback for {stud_id}: ')
+            print(tmpl.format_md(sheet))
+            print('-----------------------------------\n')
+            input()
+            print('\n'*2)
 
     if warn_missing:
         print('\nChecking if some students are missing grades...')
