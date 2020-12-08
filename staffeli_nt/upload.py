@@ -98,7 +98,6 @@ if __name__ == '__main__':
                 continue
 
             path = os.path.join(root, name)
-            print(path)
             with open(path, 'r') as f:
                 sheets.append((
                     path,
