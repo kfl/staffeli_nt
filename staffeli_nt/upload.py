@@ -68,6 +68,7 @@ if __name__ == '__main__':
     live = '--live' in sys.argv
     step = '--step' in sys.argv
     warn_missing = '--warn-missing' in sys.argv
+    write_local = '--write-local' in sys.argv and not live
 
     sheets = []
 
@@ -164,6 +165,16 @@ if __name__ == '__main__':
             print('-----------------------------------\n')
             input()
             print('\n'*2)
+
+    if write_local:
+        print('Writing local')
+        for (path, sheet) in sheets:
+            f_path = path.replace('grade.yml', 'feedback.txt')
+            print('writing to: ', f_path)
+            with open(f_path, 'w') as f:
+                f.write(tmpl.format_md(sheet))
+
+
 
     if warn_missing:
         print('\nChecking if some students are missing grades...')
