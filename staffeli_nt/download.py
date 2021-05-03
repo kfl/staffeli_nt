@@ -147,13 +147,14 @@ if __name__ == '__main__':
         # download submission
         for attachment in handin['files']:
             # download attachment
-            path = os.path.join(base, attachment['filename'])
+            filename = attachment['filename']
+            path = os.path.join(base, filename)
             data = download(attachment['url'])
             with open(path, 'wb') as f:
                 f.write(data)
 
             # unzip attachments
-            if attachment['mime_class'] == 'zip':
+            if attachment['mime_class'] == 'zip' and (filename in ['handin.zip', 'code.zip']):
                 unpacked = os.path.join(base, 'unpacked')
                 os.mkdir(unpacked)
                 try:
