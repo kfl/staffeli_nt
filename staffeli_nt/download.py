@@ -154,10 +154,12 @@ if __name__ == '__main__':
 
             # unzip attachments
             if attachment['mime_class'] == 'zip':
+                unpacked = os.path.join(base, 'unpacked')
+                os.mkdir(unpacked)
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
                         try:
-                            zip_ref.extractall(base)
+                            zip_ref.extractall(unpacked)
                         except NotADirectoryError:
                             print(f"Attempted to unzip into a non-directory: {name}")
                 except BadZipFile:
