@@ -92,7 +92,7 @@ if __name__ == '__main__':
         API_KEY = f.read().strip()
 
     # fetch every grading sheet
-    for root, dirs, files in os.walk(path_submissions):
+    for root, dirs, files in os.walk(path_submissions, followlinks=True):
         for name in files:
             if name != NAME_SHEET:
                 continue
