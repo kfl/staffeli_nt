@@ -5,7 +5,7 @@ from ruamel.yaml import YAML
 from typing import Optional
 
 yaml = YAML()
-yaml.indent(mapping=4, sequence=6, offset=3)
+yaml.indent(mapping=4, sequence=2, offset=2)
 yaml.Representer.add_representer(
     collections.OrderedDict,
     yaml.Representer.represent_dict
