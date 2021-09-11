@@ -35,7 +35,6 @@ class Assignment:
     show_points: bool
 
     def __init__(self, name: str, passing_points: Optional[int], tasks: [Task], show_points: Optional[bool]):
-        print(show_points, passing_points)
         self.name = name
         self.tasks = tasks
         self.passing_points = int(passing_points) if passing_points is not None else None
