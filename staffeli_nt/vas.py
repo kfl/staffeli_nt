@@ -351,3 +351,12 @@ def parse_template(data):
         passing_points = struct.get('passing-points'),
         tasks = tasks
     )
+
+def parse_students_and_tas(data) -> (list, dict):
+    struct = yaml.load(data)
+    tas = []
+    stud = []
+    for t, students in struct.items():
+        tas.append(t)
+        stud.append(list(filter(None,students)))
+    return tas, stud
