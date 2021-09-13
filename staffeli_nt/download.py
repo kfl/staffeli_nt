@@ -33,6 +33,11 @@ def smart_key(name):
 def sort_by_name(named):
     return sorted( list(named), key=lambda x: smart_key(x.name) )
 
+def ta_file(args):
+    for idx, arg in enumerate(args):
+        if arg == "--select-ta":
+            return args[idx+1]
+    return ""
 
 if __name__ == '__main__':
     course_id = sys.argv[1]
@@ -43,7 +48,7 @@ if __name__ == '__main__':
         '.canvas.token'
     )
     select_section = '--select-section' in sys.argv
-
+    select_ta = ta_file(sys.argv) # use --select-ta file.yaml
 
     # sanity check
     with open(path_template, 'r') as f:
@@ -67,6 +72,23 @@ if __name__ == '__main__':
 
     assignment = assignments[index]
 
+    ta = None
+    if select_ta:
+        with open(select_ta, 'r') as f:
+            (tas,stud) = parse_students_and_tas(f)
+
+        print('\nTAs:')
+        for n, ta in enumerate(tas):
+            print('%2d :' % n, ta)
+        index = int(input('Select TA: '))
+
+        ta = tas[index]
+        students = []
+        # Horrible hack to fetch users based on ku-ids
+        for i in stud[index]:
+            students += course.get_users(search_term=i,enrollment_type=['student'],
+                                        enrollment_state='active')
+
     section = None
     if select_section:
         sections = sort_by_name(course.get_sections())
@@ -81,6 +103,8 @@ if __name__ == '__main__':
 
 
     print(f'\nFetching: {assignment}')
+    if select_ta:
+        print(f'for {ta}')
     if select_section:
         print(f'from {section}')
 
@@ -89,7 +113,9 @@ if __name__ == '__main__':
     empty_handins = []
     submissions = []
 
-    if select_section:
+    if select_ta:
+        submissions = [assignment.get_submission(s.id) for s in students]
+    elif select_section:
         s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
                                                             for e in s['enrollments']])]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
