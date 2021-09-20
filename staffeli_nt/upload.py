@@ -92,6 +92,7 @@ if __name__ == '__main__':
         API_KEY = f.read().strip()
 
     # fetch every grading sheet
+    error_files = []
     for root, dirs, files in os.walk(path_submissions, followlinks=True):
         for name in files:
             if name != NAME_SHEET:
@@ -99,10 +100,19 @@ if __name__ == '__main__':
 
             path = os.path.join(root, name)
             with open(path, 'r') as f:
-                sheets.append((
-                    path,
-                    parse_sheet(f.read())
+                try:
+                    sheets.append((
+                        path,
+                        parse_sheet(f.read())
                     ))
+                except:
+                    error_files.append(path)
+
+    # Aborts if there are syntax errors in the .yml files, and prints offenders
+    if error_files:
+        print ("There were errors in the following files:")
+        print (*error_files, sep="\n")
+        exit()
 
     # check that every sheet is complete
     graded = True
