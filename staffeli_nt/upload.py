@@ -5,7 +5,7 @@ import sys
 import tempfile
 
 from pathlib import Path
-
+from ruamel.yaml import YAMLError
 from vas import *
 from util import *
 
@@ -105,7 +105,12 @@ if __name__ == '__main__':
                         path,
                         parse_sheet(f.read())
                     ))
+                except YAMLError as exc:
+                    print(f"\nFailed to parse {path}:")
+                    print(f"  {str(exc)}\n")
+                    error_files.append(path)
                 except:
+                    print(f"Some error in {path}")
                     error_files.append(path)
 
     # Aborts if there are syntax errors in the .yml files, and prints offenders
