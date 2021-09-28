@@ -17,15 +17,15 @@ NAME_SHEET = 'grade.yml'
 
 def grade(submission, grade, path_feedback, dry_run=True):
     # bail if dry
-    print(f'Submit: user_id={submission.user_id}, grade={grade}')
     if dry_run:
+        print(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
     print(f'Uploading new feedback for user_id: {submission.user_id}')
     submission.upload_comment(path_feedback)
 
     # set grade
-    print(f'Setting grade {grade} for user_id: {submission.user_id}')
+    print(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 

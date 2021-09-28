@@ -44,6 +44,7 @@ def grade(submission, grade, feedback, dry_run=True):
         print(f'Feedback already uploaded for user_id: {submission.user_id}')
 
     if dry_run:
+        print(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
     if not duplicate:
@@ -55,7 +56,7 @@ def grade(submission, grade, feedback, dry_run=True):
             submission.upload_comment(f_path)
 
     # set grade
-    print(f'Setting grade {grade} for user_id: {submission.user_id}')
+    print(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 
