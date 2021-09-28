@@ -142,7 +142,8 @@ if __name__ == '__main__':
             if  resubmissions_only:
                 if hasattr(submission, 'score'):
                     print(f'Score: {submission.score}')
-                    if submission.score != 1.0:
+                    # If a submission has not yet been graded, submission.score will be None
+                    if submission.score == None or submission.score < 1.0:
                         files = [s for s in submission.attachments]
                         # tag entire handin
                         uuid = sorted([a['uuid'] for a in files])
