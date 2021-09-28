@@ -24,24 +24,24 @@ def grade(submission, grade, feedback, dry_run=True):
             except KeyError:
                 attachments = []
 
-                print('Comment with:', len(attachments), 'attachments')
-                for attachment in attachments:
-                    if duplicate:
-                        break
+            #print('Comment with:', len(attachments), 'attachments')
+            for attachment in attachments:
+                if duplicate:
+                    break
 
-                    try:
-                        contents = download(attachment['url']).decode('utf-8')
-                    except UnicodeDecodeError:
-                        contents = ''
+                try:
+                    contents = download(attachment['url']).decode('utf-8')
+                except UnicodeDecodeError:
+                    contents = ''
 
-                        duplicate = duplicate or contents.strip() == feedback.strip()
+                duplicate = duplicate or contents.strip() == feedback.strip()
     except AttributeError:
         print("Internal problem?: It seems that the submission don't have a submission_comments field")
         print("   ", repr(submission))
 
     # upload feedback if new
     if duplicate:
-        print('Feedback already uploaded:', submission.user_id)
+        print(f'Feedback already uploaded for user_id: {submission.user_id}')
 
     if dry_run:
         return
@@ -54,10 +54,9 @@ def grade(submission, grade, feedback, dry_run=True):
                 f.write(feedback)
             submission.upload_comment(f_path)
 
-
     # set grade
-    if submission.score is None or abs(submission.score - grade) > 0.001:
-        submission.edit(submission={'posted_grade': grade})
+    print(f'Setting grade {grade} for user_id: {submission.user_id}')
+    submission.edit(submission={'posted_grade': grade})
 
 
 
