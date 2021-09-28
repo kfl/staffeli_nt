@@ -25,7 +25,7 @@ def grade(submission, grade, path_feedback, dry_run=True):
     submission.upload_comment(path_feedback)
 
     # set grade
-    print(f'Setting grade for user_id: {submission.user_id}')
+    print(f'Setting grade {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 
