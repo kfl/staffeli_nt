@@ -50,6 +50,8 @@ if __name__ == '__main__':
     select_section = '--select-section' in sys.argv
     select_ta = ta_file(sys.argv) # use --select-ta file.yaml
 
+    resubmissions_only = '--resub' in sys.argv
+    
     # sanity check
     with open(path_template, 'r') as f:
         template = parse_template(f.read())
@@ -134,20 +136,41 @@ if __name__ == '__main__':
 
         if hasattr(submission, 'attachments'):
             print(f'User {user.name} handed in something')
+            # NOTE: This is a terribly hacky solution and should really be rewritten
             # collect which attachments to download
-            files = [s for s in submission.attachments]
+            # if only fetching resubmissions
+            if  resubmissions_only:
+                if hasattr(submission, 'score'):
+                    print(f'Score: {submission.score}')
+                    if submission.score != 1.0:
+                        files = [s for s in submission.attachments]
+                        # tag entire handin
+                        uuid = sorted([a['uuid'] for a in files])
+                        uuid = '-'.join(uuid)
+                        try:
+                            handins[uuid]['students'].append(user)
+                        except KeyError:
+                            handins[uuid] = {
+                                'files': files,
+                                'students': [user]
+                            }
 
-            # tag entire handin
-            uuid = sorted([a['uuid'] for a in files])
-            uuid = '-'.join(uuid)
-            try:
-                handins[uuid]['students'].append(user)
-            except KeyError:
-                handins[uuid] = {
-                    'files': files,
-                    'students': [user]
-                }
-#            print(f'Handin from {user.name} UUID: {uuid}')
+
+            # else, grab everything
+            else:
+                files = [s for s in submission.attachments]
+
+                # tag entire handin
+                uuid = sorted([a['uuid'] for a in files])
+                uuid = '-'.join(uuid)
+                try:
+                    handins[uuid]['students'].append(user)
+                except KeyError:
+                    handins[uuid] = {
+                        'files': files,
+                        'students': [user]
+                    }
+
 
         else:
             # empty handin
