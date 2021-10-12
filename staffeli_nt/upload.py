@@ -5,7 +5,7 @@ import sys
 import tempfile
 
 from pathlib import Path
-
+from ruamel.yaml import YAMLError
 from vas import *
 from util import *
 
@@ -24,26 +24,27 @@ def grade(submission, grade, feedback, dry_run=True):
             except KeyError:
                 attachments = []
 
-                print('Comment with:', len(attachments), 'attachments')
-                for attachment in attachments:
-                    if duplicate:
-                        break
+            #print('Comment with:', len(attachments), 'attachments')
+            for attachment in attachments:
+                if duplicate:
+                    break
 
-                    try:
-                        contents = download(attachment['url']).decode('utf-8')
-                    except UnicodeDecodeError:
-                        contents = ''
+                try:
+                    contents = download(attachment['url']).decode('utf-8')
+                except UnicodeDecodeError:
+                    contents = ''
 
-                        duplicate = duplicate or contents.strip() == feedback.strip()
+                duplicate = duplicate or contents.strip() == feedback.strip()
     except AttributeError:
         print("Internal problem?: It seems that the submission don't have a submission_comments field")
         print("   ", repr(submission))
 
     # upload feedback if new
     if duplicate:
-        print('Feedback already uploaded:', submission.user_id)
+        print(f'Feedback already uploaded for user_id: {submission.user_id}')
 
     if dry_run:
+        print(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
     if not duplicate:
@@ -54,10 +55,9 @@ def grade(submission, grade, feedback, dry_run=True):
                 f.write(feedback)
             submission.upload_comment(f_path)
 
-
     # set grade
-    if submission.score is None or abs(submission.score - grade) > 0.001:
-        submission.edit(submission={'posted_grade': grade})
+    print(f'Setting grade to {grade} for user_id: {submission.user_id}')
+    submission.edit(submission={'posted_grade': grade})
 
 
 
@@ -92,6 +92,7 @@ if __name__ == '__main__':
         API_KEY = f.read().strip()
 
     # fetch every grading sheet
+    error_files = []
     for root, dirs, files in os.walk(path_submissions, followlinks=True):
         for name in files:
             if name != NAME_SHEET:
@@ -99,10 +100,24 @@ if __name__ == '__main__':
 
             path = os.path.join(root, name)
             with open(path, 'r') as f:
-                sheets.append((
-                    path,
-                    parse_sheet(f.read())
+                try:
+                    sheets.append((
+                        path,
+                        parse_sheet(f.read())
                     ))
+                except YAMLError as exc:
+                    print(f"\nFailed to parse {path}:")
+                    print(f"  {str(exc)}\n")
+                    error_files.append(path)
+                except:
+                    print(f"Some error in {path}")
+                    error_files.append(path)
+
+    # Aborts if there are syntax errors in the .yml files, and prints offenders
+    if error_files:
+        print ("There were errors in the following files:")
+        print (*error_files, sep="\n")
+        exit()
 
     # check that every sheet is complete
     graded = True
