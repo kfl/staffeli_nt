@@ -7,7 +7,7 @@ import shutil
 import zipfile
 import hashlib
 import re
-from zipfile import BadZipFile
+from zipfile import BadZipFile, ZipFile
 from pathlib import Path
 
 
@@ -204,13 +204,19 @@ if __name__ == '__main__':
                 f.write(data)
 
             # unzip attachments
-            if attachment['mime_class'] == 'zip' and (filename in ['handin.zip', 'code.zip']):
+            if attachment['mime_class'] == 'zip': #and (filename in ['handin.zip', 'code.zip']):
                 unpacked = os.path.join(base, 'unpacked')
                 os.mkdir(unpacked)
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
                         try:
                             zip_ref.extractall(unpacked)
+                            code_base = os.path.dirname(sorted(Path(unpacked).rglob('README*'))[0])
+                            with ZipFile(os.path.join(code_base,'code.zip'), 'w') as zf:
+                                for dirname, subdirs, files in os.walk(code_base):
+                                    print(dirname, subdirs, files)
+                                    for f in files:
+                                        zf.write(f)
                         except NotADirectoryError:
                             print(f"Attempted to unzip into a non-directory: {name}")
                 except BadZipFile:
