@@ -19,3 +19,4 @@ def run_onlineTA(base, handin, url):
                                (zf.filename, open(zf.filename, 'rb'))})
     with open(os.path.join(base,'onlineTA_results.txt'), 'a') as f:
         f.writelines(req.text)
+    os.remove('code.zip')
