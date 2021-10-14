@@ -7,8 +7,9 @@ import shutil
 import zipfile
 import hashlib
 import re
-from zipfile import BadZipFile
+from zipfile import BadZipFile, ZipFile
 from pathlib import Path
+import requests
 
 
 from vas import *
@@ -171,8 +172,6 @@ if __name__ == '__main__':
                         'files': files,
                         'students': [user]
                     }
-
-
         else:
             # empty handin
             empty_handins.append(user)
@@ -204,13 +203,16 @@ if __name__ == '__main__':
                 f.write(data)
 
             # unzip attachments
-            if attachment['mime_class'] == 'zip' and (filename in ['handin.zip', 'code.zip']):
+            if attachment['mime_class'] == 'zip':
                 unpacked = os.path.join(base, 'unpacked')
                 os.mkdir(unpacked)
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
                         try:
                             zip_ref.extractall(unpacked)
+                            # Run through onlineTA
+                            if template.onlineTA is not None:
+                                run_onlineTA(base, unpacked, template.onlineTA)
                         except NotADirectoryError:
                             print(f"Attempted to unzip into a non-directory: {name}")
                 except BadZipFile:
@@ -229,7 +231,6 @@ if __name__ == '__main__':
                     shutil.rmtree(path)
                 except NotADirectoryError:
                     os.remove(path)
-
 
 
         # create grading sheet from template
