@@ -35,13 +35,15 @@ class Assignment:
     show_points: bool
 
     def __init__(self, name: str, passing_points: Optional[int], tasks: [Task],
-                 show_points: Optional[bool], onlineTA: Optional[str]):
+                 show_points: Optional[bool], onlineTA: Optional[str],
+                 post_download: Optional[str]):
         self.name = name
         self.tasks = tasks
         self.passing_points = int(passing_points) if passing_points is not None else None
         self.total_points = 0
         self.show_points = bool(show_points) if show_points is not None else True
         self.onlineTA = onlineTA
+        self.post_download = post_download
         for task in self.tasks:
             self.total_points += task.points
 
@@ -355,7 +357,8 @@ def parse_template(data):
         passing_points = struct.get('passing-points'),
         tasks = tasks,
         show_points = struct.get('show-points'),
-        onlineTA = struct.get('onlineTA')
+        onlineTA = struct.get('onlineTA'),
+        post_download = struct.get('post-download')
     )
 
 def parse_students_and_tas(data) -> (list, dict):

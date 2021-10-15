@@ -201,22 +201,13 @@ if __name__ == '__main__':
             data = download(attachment['url'])
             with open(path, 'wb') as f:
                 f.write(data)
-
-            # unzip attachments
-            if attachment['mime_class'] == 'zip':
-                unpacked = os.path.join(base, 'unpacked')
-                os.mkdir(unpacked)
+            #handle post-Download code here.
+            if template.post_download is not None:
                 try:
-                    with zipfile.ZipFile(path, 'r') as zip_ref:
-                        try:
-                            zip_ref.extractall(unpacked)
-                            # Run through onlineTA
-                            if template.onlineTA is not None:
-                                run_onlineTA(base, unpacked, template.onlineTA)
-                        except NotADirectoryError:
-                            print(f"Attempted to unzip into a non-directory: {name}")
-                except BadZipFile:
-                    print(f"Attached archive not a zip-file: {name}")
+                    exec(template.post_download)
+                except Exception as e:
+                    print(e)
+                    exit(1)
         # remove junk from submission directory
         junk = [
             '.git',
