@@ -10,6 +10,7 @@ import re
 from zipfile import BadZipFile, ZipFile
 from pathlib import Path
 import requests
+from typing import Dict, Any
 
 
 from vas import *
@@ -111,14 +112,14 @@ if __name__ == '__main__':
     if select_section:
         print(f'from {section}')
 
-    handins = {}
+    handins: Dict[str, Any] = {}
     participants = []
     empty_handins = []
     submissions = []
 
     if select_ta:
         submissions = [assignment.get_submission(s.id) for s in students]
-    elif select_section:
+    elif section:
         s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
                                                             for e in s['enrollments']])]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
@@ -197,8 +198,8 @@ if __name__ == '__main__':
             filename = attachment['filename']
             path = os.path.join(base, filename)
             data = download(attachment['url'])
-            with open(path, 'wb') as f:
-                f.write(data)
+            with open(path, 'wb') as bf:
+                bf.write(data)
 
             # unzip attachments
             if attachment['mime_class'] == 'zip':

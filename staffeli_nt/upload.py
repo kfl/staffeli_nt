@@ -77,12 +77,12 @@ if __name__ == '__main__':
         '.canvas.token'
     )
 
-    meta = os.path.join(
+    meta_file = os.path.join(
         path_submissions,
         'meta.yml'
     )
 
-    with open(meta, 'r') as f:
+    with open(meta_file, 'r') as f:
         meta = parse_meta(f.read())
 
     with open(path_template, 'r') as f:
