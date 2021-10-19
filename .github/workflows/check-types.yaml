@@ -1,7 +1,7 @@
 name: Sanity check
 on: [push, pull_request]
 jobs:
-  python:
+  python-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -9,12 +9,32 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-      - name: Install dependencies
+
+      - name: Upgrade pip
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
+
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install -r ./requirements.txt
+
+      - name: Install mypy
+        run: |
           python3 -m pip install mypy types-requests
 
-      - name: MyPy Check
+      - name: Check with mypy
         run: |
           python3 -m mypy --no-incremental staffeli_nt
