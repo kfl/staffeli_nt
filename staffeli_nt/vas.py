@@ -1,8 +1,8 @@
 import collections
 
-from canvasapi import Canvas
-from ruamel.yaml import YAML
-from typing import Optional
+from canvasapi import Canvas # type: ignore
+from ruamel.yaml import YAML # type: ignore
+from typing import Optional, List, Tuple
 
 yaml = YAML()
 yaml.indent(mapping=4, sequence=2, offset=2)
@@ -29,12 +29,12 @@ class Task:
 
 class Assignment:
     name: str
-    tasks: [Task]
+    tasks: List[Task]
     total_points: int
     passing_points: Optional[int]
     show_points: bool
 
-    def __init__(self, name: str, passing_points: Optional[int], tasks: [Task],
+    def __init__(self, name: str, passing_points: Optional[int], tasks: List[Task],
                  show_points: Optional[bool], onlineTA: Optional[str]):
         self.name = name
         self.tasks = tasks
@@ -223,9 +223,9 @@ class Solution:
 
 class GradingSheet:
     name : str
-    students: [Student]
+    students: List[Student]
 
-    def __init__(self, name: str, solutions: [Solution], students: [Student]):
+    def __init__(self, name: str, solutions: List[Solution], students: List[Student]):
         self.name = name
         self.students = students
         self.solutions = solutions
@@ -358,10 +358,10 @@ def parse_template(data):
         onlineTA = struct.get('onlineTA')
     )
 
-def parse_students_and_tas(data) -> (list, dict):
+def parse_students_and_tas(data) -> Tuple[List[str], List[List[str]]]:
     struct = yaml.load(data)
     tas = []
-    stud = []
+    stud : List[List[str]] = []
     for t, students in struct.items():
         tas.append(t)
         stud.append(list(filter(None,students)))

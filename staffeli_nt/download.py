@@ -126,7 +126,7 @@ if __name__ == '__main__':
     else:
         submissions = assignment.get_submissions()
 
-    for i, submission in enumerate(submissions):
+    for submission in submissions:
         user = course.get_user(submission.user_id)
         # add to participant list
         participants.append(
@@ -147,8 +147,7 @@ if __name__ == '__main__':
                     if submission.score == None or submission.score < 1.0:
                         files = [s for s in submission.attachments]
                         # tag entire handin
-                        uuid = sorted([a['uuid'] for a in files])
-                        uuid = '-'.join(uuid)
+                        uuid = '-'.join(sorted([a['uuid'] for a in files]))
                         try:
                             handins[uuid]['students'].append(user)
                         except KeyError:
@@ -163,8 +162,7 @@ if __name__ == '__main__':
                 files = [s for s in submission.attachments]
 
                 # tag entire handin
-                uuid = sorted([a['uuid'] for a in files])
-                uuid = '-'.join(uuid)
+                uuid = '-'.join(sorted([a['uuid'] for a in files]))
                 try:
                     handins[uuid]['students'].append(user)
                 except KeyError:
@@ -226,11 +224,11 @@ if __name__ == '__main__':
         ]
         base_path = Path(base)
         for pattern in junk:
-            for path in base_path.rglob(pattern):
+            for junk_path in base_path.rglob(pattern):
                 try:
-                    shutil.rmtree(path)
+                    shutil.rmtree(junk_path)
                 except NotADirectoryError:
-                    os.remove(path)
+                    os.remove(junk_path)
 
 
         # create grading sheet from template
@@ -249,9 +247,9 @@ if __name__ == '__main__':
 
     # create meta file
     with open(meta, 'w') as f:
-        meta = Meta(
+        meta_data = Meta(
             course=MetaCourse(course.id, course.name),
             assignment=MetaAssignment(assignment.id, assignment.name,
                                       section=section.id if section else None),
         )
-        yaml.dump(meta.serialize(), f)
+        yaml.dump(meta_data.serialize(), f)
