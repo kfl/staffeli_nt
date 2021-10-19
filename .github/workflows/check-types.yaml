@@ -28,10 +28,12 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
+        if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
           python3 -m pip install -r ./requirements.txt
 
       - name: Install mypy
+        if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
           python3 -m pip install mypy types-requests
 
