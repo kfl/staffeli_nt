@@ -1,8 +1,8 @@
 import collections
 
+from typing import Optional, List, Tuple
 from canvasapi import Canvas # type: ignore
 from ruamel.yaml import YAML # type: ignore
-from typing import Optional, List, Tuple
 
 yaml = YAML()
 yaml.indent(mapping=4, sequence=2, offset=2)
