@@ -59,11 +59,59 @@ environment](https://packaging.python.org/guides/installing-using-pip-and-virtua
 
 Fetch Submissions for an Assignment
 -----------------------------------
+There are multiple options for fetching submissions.
 
-Use `download.py <course_id> <template.yaml> <assignment-dir>`. For
-instance, to fetch all submissions for "ass1":
+The general command is `download.py <course_id> <template.yaml> <assignment-dir> [flags]`, where
+- `<course_id>` is the canvas `course_id` for the course.
+- `<template.yaml>` is the template file to use when generating the `grade.yml` file for each submission
+- `<assignment_dir>` is a *non-existing* directory, that staffeli will create and store the submissions in. 
 
-    $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1
+To fetch **all** submissions from the course with id 42376, using the template-file `ass1-template.yml` and create a new directory "ass1dir" to store the submissions in:
+
+    $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1dir
+
+This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch. 
+
+### Flags
+#### Fetching all submissions for a section
+What we call "Hold", canvas/absalon calls sections. 
+To fetch all submissions for an assignment, where the student belongs to a given section:
+
+    $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1dir --select-section
+
+This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by a list of sections for you to choose from. 
+
+#### Fetching specific submissions (based on kuid)
+It is possible to fetch specific submissions based on a list of kuids. 
+To do this, create a YAML-file with the following format:
+
+``` yaml
+TA1:
+- kuid1
+- kuid2
+- kuid3
+TA2:
+- kuid4
+- kuid5
+```
+
+To then fetch all submissions for an assignment for a given TA:
+
+    $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1dir --select-ta ta_list.yml
+
+where `ta_list.yml` is a YAML-file following the above format. 
+
+
+This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by the list of TA's from your `ta_list.yml` file. 
+Selecting a TA, will fetch submissions from each `kuid` in the file, associated with the chosen TA, i.e. selecting `TA1` will fetch submission from `kuid1`, `kuid2` and `kuid3`. 
+
+
+### Automatically running onlineTA for each submission
+In the `template.yml`-file you can add a field:
+
+`onlineTA: https://address.of.onlineTA.dk/grade/assignmentName`
+
+This will (attempt to) run onlineTA for each downloaded submission. 
 
 
 Upload Feedback and grades
@@ -89,14 +137,18 @@ To upload feedback for a single submission:
     $ upload_single.py <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
 
 
+To generate `feedback.txt` locally for submissions in the directory `ass1`:
+
+    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --write-local
+
+
 Template format
 ---------------
 
 A (minimal) template could look like:
 
 ```yaml
-name: Mini asignment
-passing-points: 3
+name: Mini assignment
 
 tasks:
   - overall:
@@ -110,6 +162,53 @@ tasks:
         Wow, that's really clever.
 ```
 
-The field `passing-points` is optional. Adding this field will have
-the effect, that the grade posted is `1` if the total sum of points is
+### Optional fields
+
+The template files support a few optional fields. 
+
+- `passing-points: N`:  
+Adding this field will have the effect, that the grade posted is `1` if the total sum of points is
 greater than or equal to `passing-points`, and `0` otherwise.
+- `show-points: BOOL`  
+Setting show-points to `false` will exclude the `points/grade` from the generated `feedback.txt` files. 
+Use this, if you do not want the students to see the points-per-task, but only receive an overall grade. 
+
+- `onlineTA: ADDR`  
+Include this field to (attempt to) run onlineTA at address `ADDR` for each submission, when downloading submissions. 
+
+
+### Fully fledged example template
+```yaml
+name: Mega assignment
+passing-points: 42
+show-points: false
+onlineTA: https://yeah-this-is-not-a-real-address.dk/grade/megaassignment
+
+tasks:
+  - megaAssignmentGeneral:
+      title: Mega assignment - General comments and adherence to hand-in format requirements
+      points: 100
+      rubric: | 
+        [*] You should spell check your assignments before handing them in
+        [-] You are using the charset iso-8859-1. Please move to the modern age. 
+        [-] Your zip-file contains a lot of junk. Please be aware of what you hand in. 
+
+  - megaAssignmentTask1:
+      title: Task 1
+      points: 2
+      rubric: |
+        [+] Your implementation follows the API
+        [-] Your implementation does not follow the API
+        [+] Your tests are brilliant
+        [-] Your tests are not tests, just print-statements. 
+            This is equivalent to an exam without an examinator, where you shout 
+            in a room for half an hour and give yourself the grade 12.
+
+  - megaAssignmentTask2:
+      title: Task 2
+      points: 2
+      rubric: |
+        [+] Very good points. 
+        [+] Very good points. However, I disagree with ... 
+        [-] I fail to comprehend you answer to this task. 
+```
