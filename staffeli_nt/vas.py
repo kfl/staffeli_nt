@@ -43,7 +43,8 @@ class Assignment:
         self.show_points = bool(show_points) if show_points is not None else True
         self.onlineTA = onlineTA
         for task in self.tasks:
-            self.total_points += task.points
+            if task.points is not None:
+                self.total_points += task.points
 
     def format_md(self, sheet):
         assert isinstance(sheet, GradingSheet)
@@ -192,12 +193,10 @@ class Solution:
 
     def serialize(self):
 
-        inner = [
-            ('grade', self.grade),
-            ('feedback', self.feedback)
-        ]
+        inner = [ ('feedback', self.feedback) ]
 
         if self.points is not None:
+            inner.append(('grade', self.grade))
             inner.append(('points', self.points))
 
         if self.bonus is not None:
@@ -209,6 +208,9 @@ class Solution:
 
     def get_grade(self, task: Task, with_bonus=True):
         bonus = 0 if (self.bonus is None) or (not with_bonus) else self.bonus
+
+        if self.points is None:
+            return 0
 
         if self.grade is not None:
             return self.grade + bonus
@@ -287,7 +289,7 @@ def parse_sheet(data):
                 name = k,
                 bonus = v['bonus'] if 'bonus' in v else None,
                 points = v['points'] if 'points' in v else None,
-                grade = v['grade'],
+                grade = v['grade'] if 'points' in v else None,
                 feedback = v['feedback']  if 'feedback' in v else None
             )
             for (k, v) in flat(struct['solutions'])
