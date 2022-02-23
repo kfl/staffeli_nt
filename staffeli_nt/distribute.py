@@ -1,16 +1,17 @@
 import os
 import sys
 from math import ceil
-from download import *
+from download import kuid, sort_by_name
 from pathlib import Path
 from canvasapi import Canvas
+from typing import Dict, Any
 
 def chunks(l, n):
     # Yield n number of sequential chunks from l.
     d, r = divmod(len(l), n)
     for i in range(n):
         si = (d+1)*(i if i < r else r) + d*(0 if i < r else i - r)
-        yield list (l[si:si+(d+1 if i < r else d)])
+        yield l[si:si+(d+1 if i < r else d)]
 
 def balance_two_lists (l1, l2):
     combined = l1 + l2
@@ -77,9 +78,9 @@ if __name__ == '__main__':
     section_names = []
 
     print ('Getting assignments...')
-    if mode == 'Split All':
-        submission_groups = chunk(assignment.get_submissions(), num_TA)
-    elif mode == 'By Section':
+    if distribution_mode == 'Split all':
+        submission_groups = chunks(list (assignment.get_submissions()), num_TA)
+    elif distribution_mode == 'By Section':
         # First section seems to always be a general purpose one, so we skip it.
         # It's honestly a stupid hack that probably won't work in general
         sections = sort_by_name(course.get_sections())[1:]
