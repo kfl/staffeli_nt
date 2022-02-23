@@ -73,7 +73,6 @@ if __name__ == '__main__':
 
 
     handins: Dict[str, Any] = {}
-    participants = []
     submission_groups = []
     section_names = []
 
