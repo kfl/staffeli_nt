@@ -109,8 +109,8 @@ if __name__ == '__main__':
                     print(f"\nFailed to parse {path}:")
                     print(f"  {str(exc)}\n")
                     error_files.append(path)
-                except:
-                    print(f"Some error in {path}")
+                except Exception as exc:
+                    print(f"Some error in {path}. Error description: {exc}")
                     error_files.append(path)
 
     # Aborts if there are syntax errors in the .yml files, and prints offenders
