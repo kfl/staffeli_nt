@@ -1,17 +1,11 @@
 import os
 import sys
+import numpy as np
 from math import ceil
 from download import kuid, sort_by_name
 from pathlib import Path
 from canvasapi import Canvas
 from typing import Dict, Any
-
-def chunks(l, n):
-    # Yield n number of sequential chunks from l.
-    d, r = divmod(len(l), n)
-    for i in range(n):
-        si = (d+1)*(i if i < r else r) + d*(0 if i < r else i - r)
-        yield l[si:si+(d+1 if i < r else d)]
 
 def balance_two_lists (l1, l2):
     combined = l1 + l2
@@ -78,7 +72,11 @@ if __name__ == '__main__':
 
     print ('Getting assignments...')
     if distribution_mode == 'Split all':
-        submission_groups = chunks(list (assignment.get_submissions()), num_TA)
+        #submission_groups = np.array_split (list (assignment.get_submissions()), num_TA)
+        all_submissions = list (assignment.get_submissions())
+        all_handins = [ submission for submission in all_submissions
+                        if hasattr (submission, 'attachments') ]
+        submission_groups = np.array_split (all_handins, num_TA)
     elif distribution_mode == 'By Section':
         # First section seems to always be a general purpose one, so we skip it.
         # It's honestly a stupid hack that probably won't work in general
@@ -95,7 +93,7 @@ if __name__ == '__main__':
                     student_ids=s_ids
                 )
                 section_submissions = [ submission for submission in section_submissions
-                                        if hasattr (submission, 'attachments')]
+                                        if hasattr (submission, 'attachments') ]
                 submission_groups.append (section_submissions)
 
     if balance:
@@ -104,6 +102,8 @@ if __name__ == '__main__':
     distribution = os.path.join (path_destination, f'{assignment.name}_ta_list.yml')
     with open (distribution, 'w') as f:
         for cur_group, submission_group in enumerate (submission_groups):
+            print (f"TA {cur_group}:")
+            print (len (submission_group))
             if distribution_mode == 'Split all':
                 f.write (f'TA {cur_group}:\n')
             elif distribution_mode == 'By Section':
