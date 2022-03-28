@@ -203,22 +203,22 @@ if __name__ == '__main__':
             with open(path, 'wb') as bf:
                 bf.write(data)
 
-            if no_unzip:
-                # unzip attachments
-                if attachment['mime_class'] == 'zip':
-                    unpacked = os.path.join(base, 'unpacked')
-                    os.mkdir(unpacked)
-                    try:
-                        with zipfile.ZipFile(path, 'r') as zip_ref:
-                            try:
-                                zip_ref.extractall(unpacked)
-                                # Run through onlineTA
-                                if template.onlineTA is not None:
-                                    run_onlineTA(base, unpacked, template.onlineTA)
-                            except NotADirectoryError:
-                                print(f"Attempted to unzip into a non-directory: {name}")
-                    except BadZipFile:
-                        print(f"Attached archive not a zip-file: {name}")
+            if no_unzip: continue
+            # unzip attachments
+            if attachment['mime_class'] == 'zip':
+                unpacked = os.path.join(base, 'unpacked')
+                os.mkdir(unpacked)
+                try:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        try:
+                            zip_ref.extractall(unpacked)
+                            # Run through onlineTA
+                            if template.onlineTA is not None:
+                                run_onlineTA(base, unpacked, template.onlineTA)
+                        except NotADirectoryError:
+                            print(f"Attempted to unzip into a non-directory: {name}")
+                except BadZipFile:
+                    print(f"Attached archive not a zip-file: {name}")
         # remove junk from submission directory
         junk = [
             '.git',
