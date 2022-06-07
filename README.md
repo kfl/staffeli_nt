@@ -217,3 +217,11 @@ tasks:
       rubric: |
         [*] You did extra work! It won't help you though.
 ```
+
+Pass/fail/complete/incomplete
+-----------------------------
+
+Instead of a number of points, tasks may be graded as `pass` (or
+`complete`) or `fail` (or `incomplete`). The template still expects a
+`points` field for pass/fail assignments, `0` is probably an
+appropriate choice.

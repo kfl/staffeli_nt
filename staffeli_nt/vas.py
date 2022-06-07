@@ -1,6 +1,6 @@
 import collections
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 from canvasapi import Canvas # type: ignore
 from ruamel.yaml import YAML # type: ignore
 
@@ -33,15 +33,17 @@ class Assignment:
     total_points: int
     passing_points: Optional[int]
     show_points: bool
+    grading_type: Optional[str]
 
     def __init__(self, name: str, passing_points: Optional[int], tasks: List[Task],
-                 show_points: Optional[bool], onlineTA: Optional[str]):
+                 show_points: Optional[bool], onlineTA: Optional[str], grading_type: Optional[str]):
         self.name = name
         self.tasks = tasks
         self.passing_points = int(passing_points) if passing_points is not None else None
         self.total_points = 0
         self.show_points = bool(show_points) if show_points is not None else True
         self.onlineTA = onlineTA
+        self.grading_type = grading_type
         for task in self.tasks:
             if task.points is not None:
                 self.total_points += task.points
@@ -178,7 +180,7 @@ class Student:
         return self.id == other.id
 
 class Solution:
-    grade: float
+    grade: Union[float,str]
     points: float
 
     def __init__(self, name: str, grade, points, feedback: str='', bonus=None):
@@ -207,18 +209,22 @@ class Solution:
         return {self.name: collections.OrderedDict(inner)}
 
     def get_grade(self, task: Task, with_bonus=True):
-        bonus = 0 if (self.bonus is None) or (not with_bonus) else self.bonus
+        if isinstance(self.grade, float):
+            bonus = 0 if (self.bonus is None) or (not with_bonus) else self.bonus
 
-        if self.points is None:
-            return 0
+            if self.points is None:
+                return 0
 
-        if self.grade is not None:
-            return self.grade + bonus
+            if self.grade is not None:
+                return self.grade + bonus
 
-        if task.default is not None:
-            return task.default + bonus
+            if task.default is not None:
+                return task.default + bonus
 
-        return None
+            return None
+
+        if isinstance(self.grade, str):
+            return self.grade
 
     def is_graded(self, task: Task):
         return self.get_grade(task) is not None
@@ -250,15 +256,19 @@ class GradingSheet:
         return total
 
     def get_grade(self, ass: Assignment):
-        total = 0
+        total = "pass" if ass.grading_type == "pass_fail" else 0
         tasks = {task.name: task for task in ass.tasks}
         for sol in self.solutions:
             task = tasks[sol.name]
             try:
-                total += sol.get_grade(task)
+                if ass.grading_type == "pass_fail":
+                    if total == "pass" or total == "complete":
+                        total = sol.get_grade(task)
+                else:
+                    total += sol.get_grade(task)
             except TypeError:
                 return None
-        if ass.passing_points is not None:
+        if ass.passing_points is not None and (isinstance(total, int) or isinstance(total, float)):
             return 1 if total >= ass.passing_points else 0
         else:
             return total
@@ -336,7 +346,7 @@ def parse_meta(data):
 
     return Meta(course, assignment)
 
-def parse_template(data):
+def parse_template(data, grading_type = None):
     struct = yaml.load(data)
     tasks = []
     for t in struct['tasks']:
@@ -357,7 +367,8 @@ def parse_template(data):
         passing_points = struct.get('passing-points'),
         tasks = tasks,
         show_points = struct.get('show-points'),
-        onlineTA = struct.get('onlineTA')
+        onlineTA = struct.get('onlineTA'),
+        grading_type = grading_type
     )
 
 def parse_students_and_tas(data) -> Tuple[List[str], List[List[str]]]:

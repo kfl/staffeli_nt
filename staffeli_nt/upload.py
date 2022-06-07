@@ -85,11 +85,18 @@ if __name__ == '__main__':
     with open(meta_file, 'r') as f:
         meta = parse_meta(f.read())
 
-    with open(path_template, 'r') as f:
-        tmpl = parse_template(f.read())
-
     with open(path_token, 'r') as f:
         API_KEY = f.read().strip()
+
+    # obtain canvas session
+    API_URL = 'https://absalon.ku.dk/'
+
+    canvas = Canvas(API_URL, API_KEY)
+    course = canvas.get_course(meta.course.id)
+    assignment = course.get_assignment(meta.assignment.id)
+
+    with open(path_template, 'r') as f:
+        tmpl = parse_template(f.read(), assignment.grading_type)
 
     # fetch every grading sheet
     error_files = []
@@ -137,12 +144,6 @@ if __name__ == '__main__':
             assert student.id not in handins, 'student assigned multiple sheets'
             handins[student.id] = sheet
 
-    # obtain canvas session
-    API_URL = 'https://absalon.ku.dk/'
-
-    canvas = Canvas(API_URL, API_KEY)
-    course = canvas.get_course(meta.course.id)
-    assignment = course.get_assignment(meta.assignment.id)
     submissions = []
     section = None
 
