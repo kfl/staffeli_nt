@@ -114,6 +114,13 @@ In the `template.yml`-file you can add a field:
 This will (attempt to) run onlineTA for each downloaded submission.
 
 
+#### Fetching only ungraded submissions (resubs)
+It is possile to only fetch submissions that are either ungraded or have a score < 1.0.
+Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases. 
+This can be achieved by appending the `--resub` flag to any use of the `download.py`-script.
+
+
+
 Upload Feedback and grades
 --------------------------
 
