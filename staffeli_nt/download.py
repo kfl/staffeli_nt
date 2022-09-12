@@ -79,8 +79,11 @@ if __name__ == '__main__':
     ta = None
     if select_ta:
         with open(select_ta, 'r') as f:
-            (tas,stud) = parse_students_and_tas(f)
-
+            try:
+                (tas,stud) = parse_students_and_tas(f)
+            except Exception as e:
+                print(f"Failed to parse ta-list. Do all TA's have at least one student attached?\nexiting.")
+                sys.exit(1)
         print('\nTAs:')
         for n, ta in enumerate(tas):
             print('%2d :' % n, ta)
