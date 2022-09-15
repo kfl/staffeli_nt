@@ -41,6 +41,19 @@ def ta_file(args):
             return args[idx+1]
     return ""
 
+
+def grab_submission_comments(submission):
+    if (len(submission.submission_comments) == 0):
+        return []
+    comments = []
+    for comment in submission.submission_comments:
+        date = comment['created_at']
+        c = comment['comment']
+        name = comment['author_name']
+        comments.append("{0} - {1}: {2}".format(date, name, c))
+    comments = "\n".join(sorted(comments))
+    return comments
+
 if __name__ == '__main__':
     course_id = sys.argv[1]
     path_template = sys.argv[2]
@@ -95,7 +108,6 @@ if __name__ == '__main__':
         for i in stud[index]:
             students += course.get_users(search_term=i,enrollment_type=['student'],
                                         enrollment_state='active')
-
     section = None
     if select_section:
         sections = sort_by_name(course.get_sections())
@@ -121,14 +133,15 @@ if __name__ == '__main__':
     submissions = []
 
     if select_ta:
-        submissions = [assignment.get_submission(s.id) for s in students]
+        submissions = [assignment.get_submission(s.id, include=['submission_comments']) for s in students]
     elif section:
         s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
                                                             for e in s['enrollments']])]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=s_ids)
+                                                       student_ids=s_ids,
+                                                       include=['submission_comments'])
     else:
-        submissions = assignment.get_submissions()
+        submissions = assignment.get_submissions(include=['submission_comments'])
 
     for submission in submissions:
         user = course.get_user(submission.user_id)
@@ -157,7 +170,8 @@ if __name__ == '__main__':
                         except KeyError:
                             handins[uuid] = {
                                 'files': files,
-                                'students': [user]
+                                'students': [user],
+                                'comments': grab_submission_comments(submission)
                             }
 
 
@@ -172,7 +186,8 @@ if __name__ == '__main__':
                 except KeyError:
                     handins[uuid] = {
                         'files': files,
-                        'students': [user]
+                        'students': [user],
+                        'comments': grab_submission_comments(submission)
                     }
         else:
             # empty handin
@@ -241,6 +256,13 @@ if __name__ == '__main__':
         with open(grade, 'w') as f:
             yaml.dump(sheet.serialize(), f)
 
+        # Dump submission comments
+        # empty python lists evaluate as False, so
+        # we only dump if we have comments
+        if (handin['comments']):
+            comment_path = os.path.join(base, 'submission_comments.txt')
+            with open(comment_path, 'w') as f:
+                f.write(handin['comments'])
 
     # create a list of students with empty handins
     with open(empty, 'w') as f:
