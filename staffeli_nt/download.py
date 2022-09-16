@@ -261,6 +261,16 @@ if __name__ == '__main__':
         # we only dump if we have comments
         if (handin['comments']):
             comment_path = os.path.join(base, 'submission_comments.txt')
+            # Be super safe and check if the student handed in a file named 'submission_comments.txt'
+            # If it does exist, do some yeehaw renaming of the downloaded submission comments
+            # from canvas
+            if (os.path.exists(comment_path)):
+                fname_i : int = 0
+                while(os.path.exists(comment_path)):
+                    fname_i += 1
+                    comment_fname = 'submission_comments({0}).txt'.format(fname_i)
+                    comment_path = os.path.join(base, comment_fname)
+
             with open(comment_path, 'w') as f:
                 f.write(handin['comments'])
 

@@ -71,6 +71,10 @@ To fetch **all** submissions from the course with id 42376, using the template-f
     $ <staffeli_nt_path>/download.py 42376 ass1-template.yml ass1dir
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch.
+For each submission, a directory will be created in `<assignment_dir>`, in which the handed-in files of the submission will be stored, alongside a file `grade.yml` generated form the `<template.yml>` for a TA to fill out during grading of the assignment.
+Submission comments, if any, will be downloaded as well, and stored alongside `grade.yml` and the files of the hand-in.
+
+*In case the student hands in a file called `grade.yml` it will be overwritten by staffeli. If the student hands in a file called `submission_comments.txt` and has written submission comments on the submission, the downloaded submission comments will be renamed.*
 
 ### Flags
 #### Fetching all submissions for a section
