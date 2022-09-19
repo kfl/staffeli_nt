@@ -222,6 +222,14 @@ if __name__ == '__main__':
             # unzip attachments
             if attachment['mime_class'] == 'zip':
                 unpacked = os.path.join(base, 'unpacked')
+                # Some students might hand in multiple zip-files
+                # if they do, unpack those files into uniquely-named directories
+                if (os.path.exists(unpacked)):
+                    unpacked_i : int = 0
+                    while(os.path.exists(unpacked)):
+                        unpacked_i += 1
+                        unpacked = os.path.join(base, 'unpacked({0})'.format(unpacked_i))
+
                 os.mkdir(unpacked)
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
@@ -234,6 +242,8 @@ if __name__ == '__main__':
                             print(f"Attempted to unzip into a non-directory: {name}")
                 except BadZipFile:
                     print(f"Attached archive not a zip-file: {name}")
+                except Exception as e:
+                    print(f"Error when unzipping file {filename}.\nError message: {e}")
         # remove junk from submission directory
         junk = [
             '.git',
