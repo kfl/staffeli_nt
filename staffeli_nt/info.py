@@ -62,7 +62,7 @@ def clean_up_bags(bags):
 
 # Given a dictionary of section,handins
 # distribute such that each bag has approximately the same amount of handins
-def distribute(bags):
+def distribute(bags, verbose=True, debug=False):
     # Figure out how many bags we have
     # and how many handins we have
     # to calculate an average
@@ -72,41 +72,87 @@ def distribute(bags):
         num_handins += len(handins)
         num_bags += 1
     # Each bag should contain at most avg, the number of handins / number of TAs, rounded up
-    avg = math.ceil(num_handins / num_bags)
+    # We round down here, and redistribute the overflow later
+    avg = math.floor(num_handins / num_bags)
+    if (verbose):
+        print(f"Total: {num_handins}, TAs: {num_bags}, Avg: {avg}")
 
-    # First pop all overflowing bags until they have the perfect amount of handins.
-    # Then split the bags into two sets:
-    # 1) bags with the perfect amount of handins
-    # 2) bags with too few handins
-    # While there exist unassigned handins:
-    #     assign the first available handin to the first available bag
-    full_bags: Dict[str, Any] = {}
-    non_full_bags: Dict[str, Any] = {}
+    # The general algorithm:
+    #     First pop all overflowing bags until they have the "perfect" amount of handins,
+    #     saving the popped assignments in the list unass_ass
+    #     Then split the bags into two sets:
+    #         1) bags with the perfect amount of handins
+    #         2) bags with too few handins
+    #     While there exist unassigned handins:
+    #         assign the first available handin to the first available bag
+    full_bags: Dict[str, Any] = {} # The final dict
+    non_full_bags: Dict[str, Any] = {} # the "working" set
     unass_ass = [] # I am great at naming variables
+    counts: Dict[str, int] = {}
 
     for (key,handins) in bags.items():
         num_in_bag = len(handins)
         while (num_in_bag) > avg:
             unass_ass.append(handins.pop())
             num_in_bag -= 1
-        if (num_in_bag < avg):
-            non_full_bags[key] = handins
-        else:
-            full_bags[key] = handins
 
+        non_full_bags[key] = handins
+        counts[key] = num_in_bag
+
+    if (debug):
+        print("After emptying bags.\nBags:")
+        for (key,studs) in bags.items():
+            print(f"Hold: {key}, studs: {len(studs)}")
+        print("After emptying bags.\nfull_bags:")
+        for (key,studs) in full_bags.items():
+            print(f"Hold: {key}, studs: {len(studs)}")
+        print("After emptying bags.\nnon_full_bags:")
+        for (key,studs) in non_full_bags.items():
+            print(f"Hold: {key}, studs: {len(studs)}")
+
+    filled_bags_keys = []
     while (len(unass_ass) > 0):
+        # For all full bags, move them to the full_bags set
+        for key in filled_bags_keys:
+            full_bags[key] = non_full_bags[key]
+            del non_full_bags[key]
+        filled_bags_keys = []
+        # For each non-full bag, fill them with unassigned assignments
         for (key,handins) in non_full_bags.items():
-            # We might pop from an empty list, so chicken out and do the bare minimum
-            # to finish our stupid algorithm without errors
-            try:
-                non_full_bags[key].append(unass_ass.pop())
-            except:
-                break
+            # Check if this bag is actually full, i.e. avg+1 is our limit
+            if (len(handins) > avg):
+                filled_bags_keys.append(key)
+            else:
+                # We might pop from an empty list, so chicken out and do the bare minimum
+                # to finish our stupid algorithm without errors
+                try:
+                    non_full_bags[key].append(unass_ass.pop())
+                    counts[key] += 1
+                except:
+                    break
 
+
+    # If we have any non-full-bags left, we can redistribute
+    if (non_full_bags):
+        # Grab each non-full bag
+        for (key,handins) in non_full_bags.items():
+            # Grab each full bag
+            for (fullkey,fullhandins) in full_bags.items():
+                # if the non-full bag has plenty space
+                # and the full bag is above average, move the assignment
+                if (counts[key] < avg and counts[fullkey] > avg):
+                    handins.append(fullhandins.pop())
+                    counts[key] += 1
+                    counts[fullkey] -= 1
     # At this point, all bags should be as full as possible
+    # so collect them in a single dictionary
     for key in non_full_bags.keys():
         full_bags[key] = non_full_bags[key]
 
+    if (verbose):
+        print(f"Done redistributing {num_handins} between {num_bags} TAs.")
+        for (key,studs) in full_bags.items():
+            print(f"Hold: {key}, studs: {len(studs)}")
     return full_bags
 
 
