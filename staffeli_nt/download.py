@@ -210,6 +210,12 @@ if __name__ == '__main__':
         base = os.path.join(home, name)
         os.mkdir(base)
 
+        # Count number of zip-files in handin
+        num_zip_files = sum([1 if ".zip" in x['filename'].lower() or x['mime_class'] == 'zip' else 0 for x in handin['files']])
+        if num_zip_files > 1:
+            print(f"Submission contains {num_zip_files} files that look like zip-files.\nWill attempt to unzip into separate directories.")
+            if template.onlineTA is not None:
+                print("Will not submit to OnlineTA, due to multiple zip-files") 
         # download submission
         for attachment in handin['files']:
             # download attachment
@@ -224,19 +230,17 @@ if __name__ == '__main__':
                 unpacked = os.path.join(base, 'unpacked')
                 # Some students might hand in multiple zip-files
                 # if they do, unpack those files into uniquely-named directories
-                if (os.path.exists(unpacked)):
-                    unpacked_i : int = 0
-                    while(os.path.exists(unpacked)):
-                        unpacked_i += 1
-                        unpacked = os.path.join(base, 'unpacked({0})'.format(unpacked_i))
-
+                if (num_zip_files > 1 or os.path.exists(unpacked)):
+                    unpacked = os.path.join(base, "{0}_{1}".format(filename, '_unpacked'))
+                    print(f"Attempting to unzip {filename} into {unpacked}")
                 os.mkdir(unpacked)
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
                         try:
                             zip_ref.extractall(unpacked)
-                            # Run through onlineTA
-                            if template.onlineTA is not None:
+                            # Run through onlineTA, if the template gives a url
+                            # and we have exactly 1 zip-file
+                            if template.onlineTA is not None and num_zip_files == 1:
                                 run_onlineTA(base, unpacked, template.onlineTA)
                         except NotADirectoryError:
                             print(f"Attempted to unzip into a non-directory: {name}")
