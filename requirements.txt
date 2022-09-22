@@ -1,2 +1,2 @@
-canvasapi>=2.0.0
+canvasapi==2.2.0
 ruamel.yaml>=0.16.10
