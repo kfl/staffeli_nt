@@ -188,7 +188,7 @@ class Solution:
         self.points = points
         self.feedback = feedback
 
-        if isinstance(grade, int) or isinstance(grade, float):
+        if isinstance(grade, (int, float)):
             assert grade <= points, 'too many points given %s/%s' % (grade, points)
 
     def serialize(self):
@@ -196,8 +196,8 @@ class Solution:
         inner = [ ('feedback', self.feedback) ]
 
         if self.points is not None:
-            inner.append(('grade', self.grade))
-            inner.append(('points', self.points))
+            inner.extend((('grade', self.grade),
+                          ('points', self.points)))
 
         if self.bonus is not None:
             inner.append(('bonus', self.bonus))
@@ -260,8 +260,7 @@ class GradingSheet:
                 return None
         if ass.passing_points is not None:
             return 1 if total >= ass.passing_points else 0
-        else:
-            return total
+        return total
 
     def is_graded(self, ass: Assignment):
         return self.get_grade(ass) is not None
