@@ -285,7 +285,7 @@ if __name__ == '__main__':
                     comment_fname = 'submission_comments({0}).txt'.format(fname_i)
                     comment_path = os.path.join(base, comment_fname)
 
-            with open(comment_path, 'w') as f:
+            with open(comment_path, 'w', encoding='utf-8-sig') as f:
                 f.write(handin['comments'])
 
     # create a list of students with empty handins
