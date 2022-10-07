@@ -107,7 +107,7 @@ if __name__ == '__main__':
                     ))
                 except YAMLError as exc:
                     print(f"\nFailed to parse {path}:")
-                    print(f"  {str(exc)}\n")
+                    print(f"  {exc}\n")
                     error_files.append(path)
                 except Exception as exc:
                     print(f"Some error in {path}. Error description: {exc}")
@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
 
         for submission in submissions:
-            if submission.workflow_state in ['submitted', 'pending_review']:
+            if submission.workflow_state in ('submitted', 'pending_review'):
                 name = submission.user["short_name"]
                 group = ''.join(f'({g})' for g in [submission.group.get("name")] if g)
                 print(f'  Submission for {name} ({submission.user_id}) {group}: {submission.workflow_state}')
