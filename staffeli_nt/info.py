@@ -50,143 +50,103 @@ def write_ta_list(distribution, fname):
 
 # We have some sections that are useless,
 # Try to remove them, in a nice and hardcoded way only suitable for PoP
+# Grab the items (handins) in useless sections and put them in a list to return
 def clean_up_bags(bags):
-    # print(f'Keys before:\n{bags.keys()}')
+    unass_ass = []
     keys_to_remove = []
     for key in bags.keys():
         if ("hold" not in key.lower()):
+            for item in bags[key]:
+                unass_ass.append(item)
             keys_to_remove.append(key)
     for key in keys_to_remove:
         del bags[key]
-
+    return unass_ass
 
 # Given a dictionary of section,handins
 # distribute such that each bag has approximately the same amount of handins
 def distribute(bags, verbose=True, debug=False):
-    # Figure out how many bags we have
-    # and how many handins we have
-    # to calculate an average
-    num_handins = 0
+    # First clean up the bags, grabbing all "phony section" submissions in the process
+    unass_ass_stack = clean_up_bags(bags)  # I am still great at naming variables
+    # Figure out how many bags we have, how many handins we have and calculate an average
+    num_handins = len(unass_ass_stack)
     num_bags = 0
     for (key,handins) in bags.items():
         num_handins += len(handins)
         num_bags += 1
     # Each bag should contain at most avg, the number of handins / number of TAs, rounded up
-    # We round down here, and redistribute the overflow later
-    avg = math.floor(num_handins / num_bags)
+    avg = math.ceil(num_handins / num_bags)
     if (verbose or debug):
-        print(f"Total: {num_handins}, TAs: {num_bags}, Avg: {avg}")
+        print(f"[INFO] Total: {num_handins}")
+        print(f"[INFO] TAs: {num_bags}")
+        print(f"[INFO] Avg, rounded up: {avg}")
+        print(f"[INFO] Initial unassigned submissions: {len(unass_ass_stack)}")
 
     # The general algorithm:
-    #     First pop all overflowing bags until they have the "perfect" amount of handins,
-    #     saving the popped assignments in the list unass_ass
-    #     Then split the bags into two sets:
-    #         1) bags with the perfect amount of handins
-    #         2) bags with too few handins
-    #     While there exist unassigned handins:
-    #         assign the first available handin to the first available bag
-    full_bags: Dict[str, Any] = {} # The final dict
-    non_full_bags: Dict[str, Any] = {} # the "working" set
-    unass_ass = [] # I am great at naming variables
-    counts: Dict[str, int] = {}
-
-    for (key,handins) in bags.items():
-        num_in_bag = len(handins)
-        if (verbose or debug):
-            diff = num_in_bag - avg
-            print(f"Hold {key} has {num_in_bag} submissions.\n")
-            if (diff > 0):
-                print(f"Removing {diff} submissions.")
-            else:
-                print(f"Will try to assign {(diff*-1)} submissions.")
-        while (num_in_bag) > avg:
-            unass_ass.append(handins.pop())
-            num_in_bag -= 1
-
-        non_full_bags[key] = handins
-        counts[key] = num_in_bag
-
-    if (debug):
-        print("After emptying bags.\nBags:")
-        for (key,studs) in bags.items():
-            print(f"Hold: {key}, studs: {len(studs)}")
-        print("full_bags:")
-        for (key,studs) in full_bags.items():
-            print(f"Hold: {key}, studs: {len(studs)}")
-        print("non_full_bags:")
-        for (key,studs) in non_full_bags.items():
-            print(f"Hold: {key}, studs: {len(studs)}")
-        print(f"unass_ass: {len(unass_ass)}")
-
-    filled_bags_keys = []
-    while (len(unass_ass) > 0):
-        # For all full bags, move them to the full_bags set
-        for key in filled_bags_keys:
-            full_bags[key] = non_full_bags[key]
-            del non_full_bags[key]
-        filled_bags_keys = []
-        # For each non-full bag, fill them with unassigned assignments
-        # Start from the least full bag
-        iterlist = sorted([(len(handins),key) for (key,handins) in non_full_bags.items()], key=lambda x: x[0])
-        # Filter the iterlist to get a (possibly empty) list of "hold" with less than avg assignments
-        onlyLessThanAvg = list(filter(lambda ck: ck[0] < avg, iterlist))
-        # If such a list exists, iterate over that to prioritize "hold" with too few assignments
-        if onlyLessThanAvg: iterlist = onlyLessThanAvg
-        for (handins,key) in iterlist:
-            if (debug):
-                print(f"{len(unass_ass)} submissions unassigned.")
-                print(f"hold: {key} currently has {handins} submissions.")
-            # Check if this bag is actually full, i.e. avg+1 is our limit
-            if (handins > avg):
-                if (debug):
-                    print("handins above avg, moving to filled_bags.")
-                filled_bags_keys.append(key)
-            else:
-                # We might pop from an empty list, so chicken out and do the bare minimum
-                # to finish our stupid algorithm without errors
-                try:
-                    if (debug):
-                        print(f"Assigning unassigned submission to {key}.")
-                    non_full_bags[key].append(unass_ass.pop())
-                    counts[key] += 1
-                except:
-                    break
-
-    # NOTE: I believe this will never happen
-    #       Should probably be investigated properly and eventually removed
-    #       
-    # If we have any non-full-bags left, we can redistribute
-    if (non_full_bags):
-        if (debug):
-            print("Non-full bags present!")
-            print(non_full_bags.keys())
-        # Grab each non-full bag
-        for (key,handins) in non_full_bags.items():
-            if (debug):
-                print("Currently looking at non-full bag {}".format(key))
-            # Grab each full bag
-            for (fullkey,fullhandins) in full_bags.items():
-                if (debug):
-                    print("Checking full bag {}".format(fullkey))
-                # if the non-full bag has plenty space
-                # and the full bag is above average, move the assignment
-                if (counts[key] < avg and counts[fullkey] > avg):
-                    if (debug):
-                        print("Moving handin to {} from {}".format(key, fullkey))
-                    handins.append(fullhandins.pop())
-                    counts[key] += 1
-                    counts[fullkey] -= 1
-
-    # At this point, all bags should be as full as possible
-    # so collect them in a single dictionary
-    for key in non_full_bags.keys():
-        full_bags[key] = non_full_bags[key]
+    #    1) Sort the bags in order of descending number of handins
+    #    2) Create an empty stack to hold unassigned submissions
+    #    3) For each bag:
+    #        if overfull, remove submissions by pushing them to the stack
+    #        else, add submissions by popping from the stack
+    #    4) while bag(s) exist with < (avg-1) submissions exist:
+    #           redistribute submission from a bag with >= avg submissions
 
     if (verbose or debug):
-        print(f"Done redistributing {num_handins} between {num_bags} TAs.")
-        for (key,studs) in full_bags.items():
-            print(f"Hold: {key}, studs: {len(studs)}")
-    return full_bags
+        print("[INFO] Before redistribution:")
+        print("{0:32}handins".format("Hold"))
+        for (key,handins) in bags.items():
+            print("{0:32}{1}".format(key, len(handins)))
+
+    # We iterate over all bags, sorted in order of descending number of handins
+    baglist = sorted([(len(handins),key) for (key,handins) in bags.items()], key=lambda x: x[0], reverse=True)
+
+    for (handins,key) in baglist:
+        # Will loop if bag has too many handins
+        for _ in range(handins-avg):
+            unass_ass_stack.append(bags[key].pop())
+        # will loop if bag has too few handins
+        for _ in range(avg-handins-1):
+            # We might pop from an empty stack, so we catch the exception and just redistribute further later
+            try:
+                bags[key].append(unass_ass_stack.pop())
+            except:
+                break
+
+    # Hold that has too few submissions
+    nonfull = list(filter(lambda x: x[0] < (avg-1), [(len(handins), key) for (key,handins) in bags.items()]))
+    # Hold that has "too many" submissions
+    full = list(filter(lambda x: x[0] >= avg, [(len(handins), key) for (key,handins) in bags.items()]))
+    if (debug):
+        print(f"[DEBUG] Nonfull bags:\n{nonfull}\n[DEBUG] Full bags:\n{full}")
+
+    for (handins,key) in nonfull:
+        if (avg-handins-1) > len(full):
+            print(f"[!!!] INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.")
+            break
+        if (debug):
+            print(f"{key} needs {avg-handins-1} submissions. We have {len(full)} to give out.")
+        for _ in range(avg-handins-1):
+            try:
+                fh,fk = full[0]
+                bags[key].append(bags[fk].pop())
+                full.remove((fh,fk))
+            except:
+                print(f"[!] INTERNAL ERROR: Ran out of submissions to redistribute to {key}.")
+                break
+
+    final_num_handins = 0
+    for (key,handins) in bags.items():
+        final_num_handins += len(handins)
+    if (verbose or debug):
+        print(f"[***] SANITY CHECK:\n\tOriginal number of handins: {num_handins}\n\tFinal number of handins:    {final_num_handins}")
+        if (num_handins != final_num_handins):
+            print("[!!!] FATAL ERROR: Final number of submissions is not equal to the original number. Something went terribly wrong.")
+        print(f"[INFO] Done redistributing {num_handins} handins between {num_bags} TAs.")
+        print("{0:32}handins".format("Hold"))
+        for (key,handins) in bags.items():
+            print("{0:32}{1}".format(key, len(handins)))
+
+    return bags
 
 
 # Fetch submissions/handins for an assignment
@@ -264,7 +224,6 @@ def get_handins_by_sections(course):
 
 def create_and_write_assignment_distribution(course, fname, verbose=True, debug=False):
     handins = get_handins_by_sections(course)
-    clean_up_bags(handins)
     distributed_handins = distribute(handins,verbose,debug)
     write_ta_list(distributed_handins, fname)
 
