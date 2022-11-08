@@ -334,6 +334,8 @@ if __name__ == '__main__':
     if ("--get-ass-dist" in sys.argv):
         idx = sys.argv.index("--get-ass-dist")
         try:
+            while (sys.argv[idx+1] == "--debug" or sys.argv[idx+1] == "--quiet"):
+                idx += 1
             fname = sys.argv[idx+1]
         except:
             exit_error("Failed to find output filename")
