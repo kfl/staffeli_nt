@@ -74,7 +74,7 @@ def distribute(bags, verbose=True, debug=False):
     # Each bag should contain at most avg, the number of handins / number of TAs, rounded up
     # We round down here, and redistribute the overflow later
     avg = math.floor(num_handins / num_bags)
-    if (verbose):
+    if (verbose or debug):
         print(f"Total: {num_handins}, TAs: {num_bags}, Avg: {avg}")
 
     # The general algorithm:
@@ -92,6 +92,13 @@ def distribute(bags, verbose=True, debug=False):
 
     for (key,handins) in bags.items():
         num_in_bag = len(handins)
+        if (verbose or debug):
+            diff = num_in_bag - avg
+            print(f"Hold {key} has {num_in_bag} submissions.\n")
+            if (diff > 0):
+                print(f"Removing {diff} submissions.")
+            else:
+                print(f"Will try to assign {(diff*-1)} submissions.")
         while (num_in_bag) > avg:
             unass_ass.append(handins.pop())
             num_in_bag -= 1
@@ -103,12 +110,13 @@ def distribute(bags, verbose=True, debug=False):
         print("After emptying bags.\nBags:")
         for (key,studs) in bags.items():
             print(f"Hold: {key}, studs: {len(studs)}")
-        print("After emptying bags.\nfull_bags:")
+        print("full_bags:")
         for (key,studs) in full_bags.items():
             print(f"Hold: {key}, studs: {len(studs)}")
-        print("After emptying bags.\nnon_full_bags:")
+        print("non_full_bags:")
         for (key,studs) in non_full_bags.items():
             print(f"Hold: {key}, studs: {len(studs)}")
+        print(f"unass_ass: {len(unass_ass)}")
 
     filled_bags_keys = []
     while (len(unass_ass) > 0):
@@ -118,38 +126,63 @@ def distribute(bags, verbose=True, debug=False):
             del non_full_bags[key]
         filled_bags_keys = []
         # For each non-full bag, fill them with unassigned assignments
-        for (key,handins) in non_full_bags.items():
+        # Start from the least full bag
+        iterlist = sorted([(len(handins),key) for (key,handins) in non_full_bags.items()], key=lambda x: x[0])
+        # Filter the iterlist to get a (possibly empty) list of "hold" with less than avg assignments
+        onlyLessThanAvg = list(filter(lambda ck: ck[0] < avg, iterlist))
+        # If such a list exists, iterate over that to prioritize "hold" with too few assignments
+        if onlyLessThanAvg: iterlist = onlyLessThanAvg
+        for (handins,key) in iterlist:
+            if (debug):
+                print(f"{len(unass_ass)} submissions unassigned.")
+                print(f"hold: {key} currently has {handins} submissions.")
             # Check if this bag is actually full, i.e. avg+1 is our limit
-            if (len(handins) > avg):
+            if (handins > avg):
+                if (debug):
+                    print("handins above avg, moving to filled_bags.")
                 filled_bags_keys.append(key)
             else:
                 # We might pop from an empty list, so chicken out and do the bare minimum
                 # to finish our stupid algorithm without errors
                 try:
+                    if (debug):
+                        print(f"Assigning unassigned submission to {key}.")
                     non_full_bags[key].append(unass_ass.pop())
                     counts[key] += 1
                 except:
                     break
 
-
+    # NOTE: I believe this will never happen
+    #       Should probably be investigated properly and eventually removed
+    #       
     # If we have any non-full-bags left, we can redistribute
     if (non_full_bags):
+        if (debug):
+            print("Non-full bags present!")
+            print(non_full_bags.keys())
         # Grab each non-full bag
         for (key,handins) in non_full_bags.items():
+            if (debug):
+                print("Currently looking at non-full bag {}".format(key))
             # Grab each full bag
             for (fullkey,fullhandins) in full_bags.items():
+                if (debug):
+                    print("Checking full bag {}".format(fullkey))
                 # if the non-full bag has plenty space
                 # and the full bag is above average, move the assignment
                 if (counts[key] < avg and counts[fullkey] > avg):
+                    if (debug):
+                        print("Moving handin to {} from {}".format(key, fullkey))
                     handins.append(fullhandins.pop())
                     counts[key] += 1
                     counts[fullkey] -= 1
+
     # At this point, all bags should be as full as possible
     # so collect them in a single dictionary
     for key in non_full_bags.keys():
         full_bags[key] = non_full_bags[key]
 
-    if (verbose):
+    if (verbose or debug):
         print(f"Done redistributing {num_handins} between {num_bags} TAs.")
         for (key,studs) in full_bags.items():
             print(f"Hold: {key}, studs: {len(studs)}")
@@ -229,10 +262,10 @@ def get_handins_by_sections(course):
     return users_and_sections
 
 
-def create_and_write_assignment_distribution(course, fname):
+def create_and_write_assignment_distribution(course, fname, verbose=True, debug=False):
     handins = get_handins_by_sections(course)
     clean_up_bags(handins)
-    distributed_handins = distribute(handins)
+    distributed_handins = distribute(handins,verbose,debug)
     write_ta_list(distributed_handins, fname)
 
 
@@ -256,7 +289,7 @@ def get_section_info(course):
 
 
 def print_usage(progname):
-    print(f"Usage: ./{progname} COURSE_ID [Option]\n\tOptions:\n\t--help\t\t\t: Print this message\n\t--ids\t\t\t: Print kuids and names for a sections\n\t--get-ass-dist FNAME\t: Select an assignment and construct a distribution between available\n\t\t\t\t  TA's, resulting in a YAML-file suitable for using with\n\t\t\t\t  the --select-ta flag in staffeli/download.py.\n\t\t\t\t  The result will be written to FNAME.")
+    print(f"Usage: ./{progname} COURSE_ID [Option]\n\tOptions:\n\t--help\t\t\t: Print this message\n\t--ids\t\t\t: Print kuids and names for a sections\n\t--get-ass-dist FNAME\t: Select an assignment and construct a distribution between available\n\t\t\t\t  TA's, resulting in a YAML-file suitable for using with\n\t\t\t\t  the --select-ta flag in staffeli/download.py.\n\t\t\t\t  The result will be written to FNAME.\n\t\t\t\t  The flag --debug will enable debug printing.\n\t\t\t\t  The flag --quiet will disable verbose output.")
 
 
 def get_course(course_id):
@@ -281,7 +314,12 @@ if __name__ == '__main__':
         str(Path.home()),
         '.canvas.token'
     )
-
+    VERBOSE=True
+    DEBUG=False
+    if "--debug" in sys.argv:
+        DEBUG=True
+    if "--quiet" in sys.argv:
+        VERBOSE=False
 
     API_URL = 'https://absalon.ku.dk/'
     with open(path_token, 'r') as f:
@@ -300,7 +338,7 @@ if __name__ == '__main__':
         except:
             exit_error("Failed to find output filename")
         course = get_course(course_id)
-        create_and_write_assignment_distribution(course, fname)
+        create_and_write_assignment_distribution(course, fname, VERBOSE, DEBUG)
 
     elif ("--ids" in sys.argv):
         course = get_course(course_id)
