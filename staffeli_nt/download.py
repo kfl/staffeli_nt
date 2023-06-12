@@ -66,7 +66,9 @@ if __name__ == '__main__':
     select_ta = ta_file(sys.argv) # use --select-ta file.yaml
 
     resubmissions_only = '--resub' in sys.argv
-    
+
+    no_unzip = '--no-unzip' in sys.argv
+
     # sanity check
     with open(path_template, 'r') as f:
         template = parse_template(f.read())
@@ -225,6 +227,7 @@ if __name__ == '__main__':
             with open(path, 'wb') as bf:
                 bf.write(data)
 
+            if no_unzip: continue
             # unzip attachments
             if attachment['mime_class'] == 'zip':
                 unpacked = os.path.join(base, 'unpacked')
