@@ -177,8 +177,6 @@ def get_handins_by_sections(course):
 
     assignment = assignments[index]
     handins: Dict[str, Any] = {}
-    participants = []
-    empty_handins = []
     submissions = []
     submissions = assignment.get_submissions()
     for submission in submissions:
