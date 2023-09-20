@@ -243,19 +243,9 @@ def get_section_info(course):
         if (student.enrollments[0]["course_section_id"] == section.id):
             print('%6s,' % kuid(student.email), student.name)
 
-
-def print_usage(progname):
-    print(f"Usage: ./{progname} COURSE_ID [Option]\n\tOptions:\n\t--help\t\t\t: Print this message\n\t--ids\t\t\t: Print kuids and names for a sections\n\t--get-ass-dist FNAME\t: Select an assignment and construct a distribution between available\n\t\t\t\t  TA's, resulting in a YAML-file suitable for using with\n\t\t\t\t  the --select-ta flag in staffeli/download.py.\n\t\t\t\t  The result will be written to FNAME.\n\t\t\t\t  The flag --debug will enable debug printing.\n\t\t\t\t  The flag --quiet will disable verbose output.")
-
-
 def get_course(api_url, api_key, course_id):
     return Canvas(api_url, api_key).get_course(course_id)
 
-
-def exit_error(errmsg):
-    print(errmsg)
-    print_usage(sys.argv[0])
-    sys.exit(1)
 
 def add_subparser(subparsers: argparse._SubParsersAction):
     parser : argparse.ArgumentParser = subparsers.add_parser(name='info', help='fetch infomation related to a course')
@@ -278,7 +268,8 @@ def main(api_url, api_key, args: argparse.Namespace):
     try:
         course = canvas.get_course(course_id)
     except:
-        exit_error("Failed to parse course id.")
+        print("Failed to parse course id.")
+        sys.exit(1)
 
     if fname is not None:
         course = get_course(api_url, api_key, course_id)
@@ -287,6 +278,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         course = get_course(api_url, api_key, course_id)
         get_section_info(course)
     else:
-        exit_error("Non-valid arguments.")
+        print("Non-valid arguments.")
+        sys.exit(1)
 
 
