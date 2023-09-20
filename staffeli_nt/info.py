@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
-
 import os
 import sys
-import shutil
+import argparse
 import hashlib
 from pathlib import Path
 import re
 import math
 from vas import *
 from util import *
+from typing import Dict, Any
 
 def digest(data):
     return hashlib.sha256(data).digest()
@@ -251,8 +250,8 @@ def print_usage(progname):
     print(f"Usage: ./{progname} COURSE_ID [Option]\n\tOptions:\n\t--help\t\t\t: Print this message\n\t--ids\t\t\t: Print kuids and names for a sections\n\t--get-ass-dist FNAME\t: Select an assignment and construct a distribution between available\n\t\t\t\t  TA's, resulting in a YAML-file suitable for using with\n\t\t\t\t  the --select-ta flag in staffeli/download.py.\n\t\t\t\t  The result will be written to FNAME.\n\t\t\t\t  The flag --debug will enable debug printing.\n\t\t\t\t  The flag --quiet will disable verbose output.")
 
 
-def get_course(course_id):
-    return Canvas(API_URL, API_KEY).get_course(course_id)
+def get_course(api_url, api_key, course_id):
+    return Canvas(api_url, api_key).get_course(course_id)
 
 
 def exit_error(errmsg):
@@ -260,51 +259,35 @@ def exit_error(errmsg):
     print_usage(sys.argv[0])
     sys.exit(1)
 
-if __name__ == '__main__':
-    argc = len(sys.argv)
-    # Parse arguments
-    if (argc < 3 or "--help" in sys.argv):
-        print_usage(sys.argv[0])
-        sys.exit(0)
-    # Assume course_id is the first arg
-    course_id = sys.argv[1]
-    # Assume the canvas token is in home, named exactly '.canvas.token'
-    path_token = os.path.join(
-        str(Path.home()),
-        '.canvas.token'
-    )
-    VERBOSE=True
-    DEBUG=False
-    if "--debug" in sys.argv:
-        DEBUG=True
-    if "--quiet" in sys.argv:
-        VERBOSE=False
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='info', help='fetch infomation related to a course')
+    parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
+    parser.add_argument('--quiet', action='store_false', help='disable verbose output')
+    parser.add_argument('--debug', action='store_false', help='enable debug printing')
+    parser.add_argument('--get-ass-dist', metavar='PATH', help=("select an assignment and construct a distribution between available TA's, resulting in a YAML-file suitable for using with the --select-ta flag in download subcommand where the result will be written to PATH"))
+    parser.add_argument('--ids', action='store_false', help='print kuids and names for a sections')
+    parser.set_defaults(main=main)
 
-    API_URL = 'https://absalon.ku.dk/'
-    with open(path_token, 'r') as f:
-        API_KEY = f.read().strip()
 
-    canvas = Canvas(API_URL, API_KEY)
+def main(api_url, api_key, args: argparse.Namespace):
+    course_id=args.course_id
+    verbose=not args.quiet
+    debug=args.debug
+    fname=args.get_ass_dist
+    ids=args.ids
+
+    canvas = Canvas(api_url, api_key)
     try:
         course = canvas.get_course(course_id)
     except:
         exit_error("Failed to parse course id.")
 
-    if ("--get-ass-dist" in sys.argv):
-        idx = sys.argv.index("--get-ass-dist")
-        try:
-            while (sys.argv[idx+1] == "--debug" or sys.argv[idx+1] == "--quiet"):
-                idx += 1
-            fname = sys.argv[idx+1]
-        except:
-            exit_error("Failed to find output filename")
+    if fname is not None:
         course = get_course(course_id)
-        create_and_write_assignment_distribution(course, fname, VERBOSE, DEBUG)
-
-    elif ("--ids" in sys.argv):
+        create_and_write_assignment_distribution(course, fname, verbose, debug)
+    elif ids:
         course = get_course(course_id)
         get_section_info(course)
-
     else:
         exit_error("Non-valid arguments.")
 

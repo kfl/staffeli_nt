@@ -1,7 +1,5 @@
 import os
-import sys
-
-from pathlib import Path
+import argparse
 
 from vas import *
 
@@ -14,10 +12,17 @@ LIGHT_PURPLE = '\033[94m'
 PURPLE = '\033[95m'
 END = '\033[0m'
 
-if __name__ == '__main__':
 
-    path_template = sys.argv[1]
-    path_submissions = sys.argv[2]
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='scan', help='check if grading is fully done')
+    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
+    parser.add_argument('path_submissions', type=str, metavar='SUBMISSIONS_PATH', help='path to submissions folder')
+    parser.set_defaults(main=main)
+
+
+def main(api_url, api_key, args: argparse.Namespace):
+    path_template = args.path_template
+    path_submissions = args.path_submissions
 
     sheets = []
 

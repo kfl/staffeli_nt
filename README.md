@@ -65,7 +65,7 @@ Fetch Submissions for an Assignment
 -----------------------------------
 There are multiple options for fetching submissions.
 
-The general command is `<staffeli_nt_path>/download.py <course_id> <template.yaml> <assignment-dir> [flags]`, where
+The general command is `python <staffeli_nt_path> download <course_id> <template.yaml> <assignment-dir> [flags]`, where
 - `<staffeli_nt_path>` is the path to the directory where `staffeli_nt` is located, i.e. where the files `download.py` and `upload.py` etc. can be found.
 - `<course_id>` is the canvas `course_id` for the course.
 - `<template.yaml>` is the template file to use when generating the `grade.yml` file for each submission
@@ -73,12 +73,12 @@ The general command is `<staffeli_nt_path>/download.py <course_id> <template.yam
 
 **Windows**:  
 Since `staffeli_nt` is written in `python3`, you will need to invoke it via your `python3` interpreter. 
-Example: `python <staffeli_nt_path>/download.py <course_id> <template.yml> <assignment-dir> [flags]`
+Example: `python <staffeli_nt_path> download <course_id> <template.yml> <assignment-dir> [flags]`
 
 **Fetching all submissions**:  
 To fetch **all** submissions from the course with id `12345`, using the template-file `ass1-template.yml` and create a new directory "ass1dir" to store the submissions in:
 
-    $ <staffeli_nt_path>/download.py 12345 ass1-template.yml ass1dir
+    $ python <staffeli_nt_path> download 12345 ass1-template.yml ass1dir
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch.
 For each submission, a directory will be created in `<assignment_dir>`, in which the handed-in files of the submission will be stored, alongside a file `grade.yml` generated form the `<template.yml>` for a TA to fill out during grading of the assignment.
@@ -91,7 +91,7 @@ Submission comments, if any, will be downloaded as well, and stored alongside `g
 What we call "Hold", canvas/absalon calls sections.
 To fetch all submissions for an assignment, where the student belongs to a given section, and the `<course_id>` is `12345`:
 
-    $ <staffeli_nt_path>/download.py 12345 ass1-template.yml ass1dir --select-section
+    $ python <staffeli_nt_path> download 12345 ass1-template.yml ass1dir --select-section
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by a list of sections for you to choose from.
 
@@ -111,7 +111,7 @@ TA2:
 
 To then fetch all submissions for an assignment for a given TA:
 
-    $ <staffeli_nt_path>/download.py <course_id> ass1-template.yml ass1dir --select-ta ta_list.yml
+    $ python <staffeli_nt_path> download <course_id> ass1-template.yml ass1dir --select-ta ta_list.yml
 
 where `ta_list.yml` is a YAML-file following the above format.
 
@@ -131,36 +131,36 @@ This will (attempt to) run onlineTA for each downloaded submission.
 #### Fetching only ungraded submissions (resubs)
 It is possile to only fetch submissions that are either ungraded or have a score < 1.0.
 Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases. 
-This can be achieved by appending the `--resub` flag to any use of the `download.py`-script.
+This can be achieved by appending the `--resub` flag to any use of the `download` subcommand.
 
 
 
 Upload Feedback and grades
 --------------------------
 
-Use `upload.py <template.yaml> <assignment-dir> [--live] [--step]`.
+Use `python <staffeli_nt_path> upload <template.yaml> <assignment-dir> [--live] [--step]`.
 The default to do a *dry run*, that is **not** to upload anything
 unless the `--live` flag is given.
 
 For instance, to review all feedback for submissions in the directory
 `ass1` before uploading:
 
-    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --step
+    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --step
 
 
 To upload all feedback for submissions in the directory
 `ass1`:
 
-    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --live
+    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --live
 
 To upload feedback for a single submission:
 
-    $ upload_single.py <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
+    $ python <staffeli_nt_path> upload-single <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
 
 
 To generate `feedback.txt` locally for submissions in the directory `ass1`:
 
-    $ <staffeli_nt_path>/upload.py ass1-template.yml ass1 --write-local
+    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --write-local
 
 
 Template format
