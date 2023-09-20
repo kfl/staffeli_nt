@@ -283,10 +283,10 @@ def main(api_url, api_key, args: argparse.Namespace):
         exit_error("Failed to parse course id.")
 
     if fname is not None:
-        course = get_course(course_id)
+        course = get_course(api_url, api_key, course_id)
         create_and_write_assignment_distribution(course, fname, verbose, debug)
     elif ids:
-        course = get_course(course_id)
+        course = get_course(api_url, api_key, course_id)
         get_section_info(course)
     else:
         exit_error("Non-valid arguments.")
