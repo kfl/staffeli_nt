@@ -60,10 +60,10 @@ def add_subparser(subparsers: argparse._SubParsersAction):
     parser : argparse.ArgumentParser = subparsers.add_parser(name='upload', help='upload feedback for submissions')
     parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
     parser.add_argument('path_submissions', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
-    parser.add_argument('--live', action='store_false', help='upload all feedback for submissions in the directory')
-    parser.add_argument('--step', action='store_false', help='to review all feedback for submissions in the directory')
-    parser.add_argument('--warn-missing', action='store_false', help='warn if grades are missing')
-    parser.add_argument('--write-local', action='store_false', help='writes the feedback locally unless --live is given')
+    parser.add_argument('--live', action='store_true', help='upload all feedback for submissions in the directory')
+    parser.add_argument('--step', action='store_true', help='to review all feedback for submissions in the directory')
+    parser.add_argument('--warn-missing', action='store_true', help='warn if grades are missing')
+    parser.add_argument('--write-local', action='store_true', help='writes the feedback locally unless --live is given')
     parser.set_defaults(main=main)
 
 def main(api_url, api_key, args: argparse.Namespace):

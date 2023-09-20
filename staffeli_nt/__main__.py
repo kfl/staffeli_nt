@@ -29,10 +29,10 @@ def main():
         print(f'Error: Missing Canvas token at {path_token}.')
         sys.exit(0)
     
-    api_key = 'https://absalon.ku.dk/'
+    api_url = 'https://absalon.ku.dk/'
 
     with open(path_token, 'r') as f:
-        api_url = f.read().strip()
+        api_key = f.read().strip()
     
     args = parser.parse_args()
     if not hasattr(args, 'main'):

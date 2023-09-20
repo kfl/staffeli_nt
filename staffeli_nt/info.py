@@ -250,10 +250,10 @@ def get_course(api_url, api_key, course_id):
 def add_subparser(subparsers: argparse._SubParsersAction):
     parser : argparse.ArgumentParser = subparsers.add_parser(name='info', help='fetch infomation related to a course')
     parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
-    parser.add_argument('--quiet', action='store_false', help='disable verbose output')
-    parser.add_argument('--debug', action='store_false', help='enable debug printing')
+    parser.add_argument('--quiet', action='store_true', help='disable verbose output')
+    parser.add_argument('--debug', action='store_true', help='enable debug printing')
     parser.add_argument('--get-ass-dist', metavar='PATH', help=("select an assignment and construct a distribution between available TA's, resulting in a YAML-file suitable for using with the --select-ta flag in download subcommand where the result will be written to PATH"))
-    parser.add_argument('--ids', action='store_false', help='print kuids and names for a sections')
+    parser.add_argument('--ids', action='store_true', help='print kuids and names for a sections')
     parser.set_defaults(main=main)
 
 

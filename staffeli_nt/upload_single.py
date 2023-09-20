@@ -33,7 +33,7 @@ def add_subparser(subparsers: argparse._SubParsersAction):
     parser.add_argument('path_meta_yml', type=str, metavar='META_PATH', help='YAML file containg meta data related to the submission')
     parser.add_argument('path_grade_yml', type=str, metavar='GRADE_PATH', help='YAML file containing the grade')
     parser.add_argument('path_feedback', type=str, metavar='FEEDBACK_PATH', help='the path to the text file containing feedback')
-    parser.add_argument('--live', action='store_false', help='upload feedback for submission')
+    parser.add_argument('--live', action='store_true', help='upload feedback for submission')
     parser.set_defaults(main=main)
 
 

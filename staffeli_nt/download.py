@@ -49,9 +49,9 @@ def add_subparser(subparsers: argparse._SubParsersAction):
     parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
     parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
     parser.add_argument('path_destination', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
-    parser.add_argument('--select-section', action='store_false', help='whether section selection is used')
+    parser.add_argument('--select-section', action='store_true', help='whether section selection is used')
     parser.add_argument('--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions')
-    parser.add_argument('--resub', action='store_false', help='whether only resubmissions should be fetched')
+    parser.add_argument('--resub', action='store_true', help='whether only resubmissions should be fetched')
     parser.set_defaults(main=main)
 
 
@@ -61,7 +61,6 @@ def main(api_url, api_key, args: argparse.Namespace):
     path_destination = args.path_destination
     select_section = args.select_section
     select_ta = args.select_ta # use --select-ta file.yaml
-
     resubmissions_only = args.resub
     
     # sanity check
@@ -148,7 +147,7 @@ def main(api_url, api_key, args: argparse.Namespace):
             # NOTE: This is a terribly hacky solution and should really be rewritten
             # collect which attachments to download
             # if only fetching resubmissions
-            if  resubmissions_only:
+            if resubmissions_only:
                 if hasattr(submission, 'score'):
                     print(f'Score: {submission.score}')
                     # If a submission has not yet been graded, submission.score will be None
