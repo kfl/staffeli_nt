@@ -1,5 +1,6 @@
 name: Sanity check
 on: [push, pull_request]
+
 jobs:
   python-check:
     runs-on: ubuntu-latest

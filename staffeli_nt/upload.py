@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
-
 import os
-import sys
 import tempfile
+import argparse
 
-from pathlib import Path
 from ruamel.yaml import YAMLError
 from vas import *
 from util import *
@@ -59,23 +56,26 @@ def grade(submission, grade, feedback, dry_run=True):
     print(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='upload', help='upload feedback for submissions')
+    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
+    parser.add_argument('path_submissions', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
+    parser.add_argument('--live', action='store_true', help='upload all feedback for submissions in the directory')
+    parser.add_argument('--step', action='store_true', help='to review all feedback for submissions in the directory')
+    parser.add_argument('--warn-missing', action='store_true', help='warn if grades are missing')
+    parser.add_argument('--write-local', action='store_true', help='writes the feedback locally unless --live is given')
+    parser.set_defaults(main=main)
 
+def main(api_url, api_key, args: argparse.Namespace):
 
-if __name__ == '__main__':
-
-    path_template = sys.argv[1]
-    path_submissions = sys.argv[2]
-    live = '--live' in sys.argv
-    step = '--step' in sys.argv
-    warn_missing = '--warn-missing' in sys.argv
-    write_local = '--write-local' in sys.argv and not live
+    path_template = args.path_template
+    path_submissions = args.path_submissions
+    live = args.live
+    step = args.step
+    warn_missing = args.warn_missing
+    write_local = args.write_local and not live
 
     sheets = []
-
-    path_token = os.path.join(
-        str(Path.home()),
-        '.canvas.token'
-    )
 
     meta_file = os.path.join(
         path_submissions,
@@ -87,9 +87,6 @@ if __name__ == '__main__':
 
     with open(path_template, 'r') as f:
         tmpl = parse_template(f.read())
-
-    with open(path_token, 'r') as f:
-        API_KEY = f.read().strip()
 
     # fetch every grading sheet
     error_files = []
@@ -137,10 +134,7 @@ if __name__ == '__main__':
             assert student.id not in handins, 'student assigned multiple sheets'
             handins[student.id] = sheet
 
-    # obtain canvas session
-    API_URL = 'https://absalon.ku.dk/'
-
-    canvas = Canvas(API_URL, API_KEY)
+    canvas = Canvas(api_url, api_key)
     course = canvas.get_course(meta.course.id)
     assignment = course.get_assignment(meta.assignment.id)
     submissions = []

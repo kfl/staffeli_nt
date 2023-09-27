@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-
 import os
 import sys
-import tempfile
 
+import argparse
 from os import access, R_OK
 from os.path import isfile
 
@@ -29,28 +27,26 @@ def grade(submission, grade, path_feedback, dry_run=True):
     submission.edit(submission={'posted_grade': grade})
 
 
-if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print("Usage: upload_single <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]")
-        exit(1)
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='upload-single', help='upload feedback for a single submission')
+    parser.add_argument('points', type=str, metavar='INT', help='number of points given')
+    parser.add_argument('path_meta_yml', type=str, metavar='META_PATH', help='YAML file containg meta data related to the submission')
+    parser.add_argument('path_grade_yml', type=str, metavar='GRADE_PATH', help='YAML file containing the grade')
+    parser.add_argument('path_feedback', type=str, metavar='FEEDBACK_PATH', help='the path to the text file containing feedback')
+    parser.add_argument('--live', action='store_true', help='upload feedback for submission')
+    parser.set_defaults(main=main)
 
-    points = sys.argv[1]
-    path_meta_yml = sys.argv[2]
-    path_grade_yml = sys.argv[3]
-    path_feedback = sys.argv[4]
 
-    live = '--live' in sys.argv
+def main(api_url, api_key, args: argparse.Namespace):
+    points = args.points
+    path_meta_yml = args.path_meta_yml
+    path_grade_yml = args.path_grade_yml
+    path_feedback = args.path_feedback
 
-    path_token = os.path.join(
-        str(Path.home()),
-        '.canvas.token'
-    )
+    live = args.live
 
     with open(path_meta_yml, 'r') as f:
         meta = parse_meta(f.read())
-
-    with open(path_token, 'r') as f:
-        API_KEY = f.read().strip()
 
     # get grade.yml
     with open(path_grade_yml, 'r') as f:
@@ -60,10 +56,7 @@ if __name__ == '__main__':
         print(f"File {path_feedback} doesn't exist or isn't readable")
         exit(1)
 
-    # obtain canvas session
-    API_URL = 'https://absalon.ku.dk/'
-
-    canvas = Canvas(API_URL, API_KEY)
+    canvas = Canvas(api_url, api_key)
     course = canvas.get_course(meta.course.id)
     assignment = course.get_assignment(meta.assignment.id)
 

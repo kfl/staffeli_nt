@@ -1,16 +1,13 @@
-#!/usr/bin/env python3
-
 import os
 import sys
-import glob
 import shutil
 import zipfile
 import hashlib
 import re
-from zipfile import BadZipFile, ZipFile
+from zipfile import BadZipFile
 from pathlib import Path
-import requests
 from typing import Dict, Any
+import argparse
 
 
 from vas import *
@@ -35,15 +32,8 @@ def smart_key(name):
 def sort_by_name(named):
     return sorted( list(named), key=lambda x: smart_key(x.name) )
 
-def ta_file(args):
-    for idx, arg in enumerate(args):
-        if arg == "--select-ta":
-            return args[idx+1]
-    return ""
-
-
 def grab_submission_comments(submission):
-    if (len(submission.submission_comments) == 0):
+    if len(submission.submission_comments) == 0:
         return []
     comments = []
     for comment in submission.submission_comments:
@@ -54,30 +44,30 @@ def grab_submission_comments(submission):
     comments = "\n".join(sorted(comments))
     return comments
 
-if __name__ == '__main__':
-    course_id = sys.argv[1]
-    path_template = sys.argv[2]
-    path_destination = sys.argv[3]
-    path_token = os.path.join(
-        str(Path.home()),
-        '.canvas.token'
-    )
-    select_section = '--select-section' in sys.argv
-    select_ta = ta_file(sys.argv) # use --select-ta file.yaml
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
+    parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
+    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
+    parser.add_argument('path_destination', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
+    parser.add_argument('--select-section', action='store_true', help='whether section selection is used')
+    parser.add_argument('--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions')
+    parser.add_argument('--resub', action='store_true', help='whether only resubmissions should be fetched')
+    parser.set_defaults(main=main)
 
-    resubmissions_only = '--resub' in sys.argv
+
+def main(api_url, api_key, args: argparse.Namespace):
+    course_id = args.course_id
+    path_template = args.path_template
+    path_destination = args.path_destination
+    select_section = args.select_section
+    select_ta = args.select_ta # use --select-ta file.yaml
+    resubmissions_only = args.resub
     
     # sanity check
     with open(path_template, 'r') as f:
         template = parse_template(f.read())
 
-    API_URL = 'https://absalon.ku.dk/'
-
-    with open(path_token, 'r') as f:
-        API_KEY = f.read().strip()
-
-
-    canvas = Canvas(API_URL, API_KEY)
+    canvas = Canvas(api_url, api_key)
     course = canvas.get_course(course_id)
 
     assignments = sort_by_name(course.get_assignments())
@@ -90,7 +80,7 @@ if __name__ == '__main__':
     assignment = assignments[index]
 
     ta = None
-    if select_ta:
+    if select_ta is not None:
         with open(select_ta, 'r') as f:
             try:
                 (tas,stud) = parse_students_and_tas(f)
@@ -109,7 +99,7 @@ if __name__ == '__main__':
             students += course.get_users(search_term=i,enrollment_type=['student'],
                                         enrollment_state='active')
     section = None
-    if select_section:
+    if select_section is not None:
         sections = sort_by_name(course.get_sections())
 
         print('\nSections:')
@@ -122,9 +112,9 @@ if __name__ == '__main__':
 
 
     print(f'\nFetching: {assignment}')
-    if select_ta:
+    if select_ta is not None:
         print(f'for {ta}')
-    if select_section:
+    if select_section is not None:
         print(f'from {section}')
 
     handins: Dict[str, Any] = {}
@@ -132,9 +122,9 @@ if __name__ == '__main__':
     empty_handins = []
     submissions = []
 
-    if select_ta:
+    if select_ta is not None:
         submissions = [assignment.get_submission(s.id, include=['submission_comments']) for s in students]
-    elif section:
+    elif section is not None:
         s_ids = [s['id'] for s in section.students if all([ e['enrollment_state'] == 'active'
                                                             for e in s['enrollments']])]
         submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
@@ -157,7 +147,7 @@ if __name__ == '__main__':
             # NOTE: This is a terribly hacky solution and should really be rewritten
             # collect which attachments to download
             # if only fetching resubmissions
-            if  resubmissions_only:
+            if resubmissions_only:
                 if hasattr(submission, 'score'):
                     print(f'Score: {submission.score}')
                     # If a submission has not yet been graded, submission.score will be None
