@@ -94,7 +94,7 @@ def main(api_url, api_key, args: argparse.Namespace):
 
         ta = tas[index]
         students = []
-        # Horrible OAhack to fetch users based on ku-ids
+        # Horrible hack to fetch users based on ku-ids
         for i in stud[index]:
             students += course.get_users(search_term=i,enrollment_type=['student'],
                                         enrollment_state='active')
