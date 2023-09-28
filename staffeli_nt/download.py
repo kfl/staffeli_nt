@@ -99,7 +99,7 @@ def main(api_url, api_key, args: argparse.Namespace):
             students += course.get_users(search_term=i,enrollment_type=['student'],
                                         enrollment_state='active')
     section = None
-    if select_section is not None:
+    if select_section:
         sections = sort_by_name(course.get_sections())
 
         print('\nSections:')
@@ -114,7 +114,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     print(f'\nFetching: {assignment}')
     if select_ta is not None:
         print(f'for {ta}')
-    if select_section is not None:
+    if select_section:
         print(f'from {section}')
 
     handins: Dict[str, Any] = {}
