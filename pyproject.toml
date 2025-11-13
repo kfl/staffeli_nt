@@ -1,0 +1,22 @@
+[project]
+name = "staffeli-nt"
+version = "0.1.0"
+description = "Staffeli NT Technology"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Ken Friis Larsen" }
+]
+
+dependencies = [
+    "canvasapi==2.2.0",
+    "ruamel-yaml>=0.16.10",
+]
+
+[project.scripts]
+staffeli = "staffeli_nt.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
