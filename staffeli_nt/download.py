@@ -10,8 +10,8 @@ from typing import Dict, Any
 import argparse
 
 
-from vas import *
-from util import *
+from .vas import *
+from .util import *
 
 def digest(data):
     return hashlib.sha256(data).digest()

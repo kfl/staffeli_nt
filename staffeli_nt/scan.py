@@ -1,7 +1,7 @@
 import os
 import argparse
 
-from vas import *
+from .vas import *
 
 NAME_SHEET = 'grade.yml'
 

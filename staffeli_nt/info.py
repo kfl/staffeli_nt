@@ -5,8 +5,8 @@ import hashlib
 from pathlib import Path
 import re
 import math
-from vas import *
-from util import *
+from .vas import *
+from .util import *
 from typing import Dict, Any
 
 def digest(data):

@@ -2,14 +2,16 @@
 
 
 import argparse
-import scan
-import download
-import info
-import upload
-import upload_single
 import os
 import sys
 from pathlib import Path
+
+from . import scan
+from . import download
+from . import info
+from . import upload
+from . import upload_single
+
 
 def main():
     parser = argparse.ArgumentParser()
