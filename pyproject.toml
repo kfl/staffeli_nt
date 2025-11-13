@@ -6,7 +6,11 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
 authors = [
-    { name = "Ken Friis Larsen" }
+    { name = "Ken Friis Larsen" },
+    { name = "Mads Obitsø" },
+    { name = "Mathias Hall-Andersen" },
+    { name = "William Due" },
+    { name = "Jacob Herbst" }
 ]
 
 dependencies = [
