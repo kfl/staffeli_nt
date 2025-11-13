@@ -24,3 +24,7 @@ staffeli = "staffeli_nt.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["staffeli_nt"]
