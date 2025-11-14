@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict, Any
 import argparse
 
-
 from .vas import *
 from .util import *
 
@@ -32,17 +31,16 @@ def smart_key(name):
 def sort_by_name(named):
     return sorted( list(named), key=lambda x: smart_key(x.name) )
 
-def grab_submission_comments(submission):
+def grab_submission_comments(submission) -> str:
     if len(submission.submission_comments) == 0:
-        return []
+        return ""
     comments = []
     for comment in submission.submission_comments:
         date = comment['created_at']
         c = comment['comment']
         name = comment['author_name']
         comments.append("{0} - {1}: {2}".format(date, name, c))
-    comments = "\n".join(sorted(comments))
-    return comments
+    return "\n".join(sorted(comments))
 
 def add_subparser(subparsers: argparse._SubParsersAction):
     parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
