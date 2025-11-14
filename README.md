@@ -316,7 +316,7 @@ If you want to contribute to `staffeli_nt` or run type checking locally:
 To run mypy type checking:
 
 ```sh
-uv run mypy --no-incremental -p staffeli_nt
+uv run mypy -p staffeli_nt
 ```
 
 ### Making changes

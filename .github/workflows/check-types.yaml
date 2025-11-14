@@ -21,4 +21,4 @@ jobs:
         run: uv sync --extra dev
 
       - name: Check with mypy
-        run: uv run mypy --no-incremental -p staffeli_nt
+        run: uv run mypy -p staffeli_nt

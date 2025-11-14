@@ -36,6 +36,7 @@ build-backend = "hatchling.build"
 packages = ["staffeli_nt"]
 
 [tool.mypy]
+incremental = false
 check_untyped_defs = true
 disallow_untyped_defs = false
 warn_return_any = true
