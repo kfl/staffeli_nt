@@ -85,12 +85,7 @@ Installation
 
 ### Using pip (traditional method)
 
-If you prefer using pip, you can still install the required libraries:
-
-    $ pip3 install -r requirements.txt
-
-Or you can install in a [virtual
-environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
+If you prefer using pip, you can install the package:
 
  1. Create a virtual environment called `env`.
 
@@ -112,11 +107,17 @@ environment](https://packaging.python.org/guides/installing-using-pip-and-virtua
 
         $ .\env\Scripts\activate
 
- 3. Now install the requirements for `staffeli_nt` in `env`
+ 3. Now install `staffeli_nt` in editable mode in `env`
 
-        $ pip3 install -r requirements.txt
+        $ pip install -e .
 
-    When using pip, run commands with `python -m staffeli_nt` instead of `staffeli`.
+    This also makes the `staffeli` tool available (**only within the activated virtual environment**).
+
+Alternatively, if you need a `requirements.txt` file:
+
+        $ pip install pip-tools
+        $ pip-compile pyproject.toml -o requirements.txt
+        $ pip install -r requirements.txt
 
 
 Fetch Submissions for an Assignment
@@ -128,7 +129,6 @@ The general command is `staffeli download <course_id> <template.yaml> <assignmen
 - `<template.yaml>` is the template file to use when generating the `grade.yml` file for each submission
 - `<assignment_dir>` is a *non-existing* directory, that staffeli will create and store the submissions in.
 
-**Note**: If you're using pip without installing the package, replace `staffeli` with `python -m staffeli_nt` in all commands below.
 
 **Fetching all submissions**:
 To fetch **all** submissions from the course with id `12345`, using the template-file `ass1-template.yml` and create a new directory "ass1dir" to store the submissions in:
