@@ -32,40 +32,56 @@ Installation
 ### Using uv (recommended)
 
 1. **Install uv** if you haven't already:
-   
-   ```bash
+
+   ```sh
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-   
+
    Or on Windows:
+
    ```powershell
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
 
 2. **Clone the repository** and navigate to it:
-   
-   ```bash
+
+   ```sh
    git clone https://github.com/kfl/staffeli_nt.git
    cd staffeli_nt
    ```
 
 3. **Sync dependencies** (creates virtual environment and installs packages):
-   
-   ```bash
+
+   ```sh
    uv sync
    ```
 
-4. **Install staffeli command**:
-   
-   ```bash
-   uv pip install -e .
+4. **Install the `staffeli` tool for your user**:
+
+   ```sh
+   uv tool install .
    ```
 
-5. **Use the `staffeli` command**:
-   
-   ```bash
+   This makes the `staffeli` tool available from anywhere on your system.
+
+5. **Use the `staffeli` tool**:
+
+   ```sh
    staffeli download <course_id> <template.yaml> <assignment-dir>
    ```
+
+6. **Update after pulling new changes**:
+
+    ```sh
+    uv tool install . --force --reinstall
+    ```
+
+7. **Uninstall the `staffeli` tool**:
+
+    ```sh
+    uv tool uninstall staffeli-nt
+    ```
+
 
 ### Using pip (traditional method)
 
@@ -114,7 +130,7 @@ The general command is `staffeli download <course_id> <template.yaml> <assignmen
 
 **Note**: If you're using pip without installing the package, replace `staffeli` with `python -m staffeli_nt` in all commands below.
 
-**Fetching all submissions**:  
+**Fetching all submissions**:
 To fetch **all** submissions from the course with id `12345`, using the template-file `ass1-template.yml` and create a new directory "ass1dir" to store the submissions in:
 
     $ staffeli download 12345 ass1-template.yml ass1dir
@@ -126,7 +142,9 @@ Submission comments, if any, will be downloaded as well, and stored alongside `g
 *In case the student hands in a file called `grade.yml` it will be overwritten by staffeli. If the student hands in a file called `submission_comments.txt` and has written submission comments on the Canvas website, these comments will also overwrite the handed-in file.*
 
 ### Flags
+
 #### Fetching all submissions for a section
+
 What we call "Hold", canvas/absalon calls sections.
 To fetch all submissions for an assignment, where the student belongs to a given section, and the `<course_id>` is `12345`:
 
@@ -135,6 +153,7 @@ To fetch all submissions for an assignment, where the student belongs to a given
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by a list of sections for you to choose from.
 
 #### Fetching specific submissions (based on kuid)
+
 It is possible to fetch specific submissions based on a list of kuids.
 To do this, create a YAML-file with the following format:
 
@@ -168,7 +187,7 @@ This will (attempt to) run onlineTA for each downloaded submission.
 
 #### Fetching only ungraded submissions (resubs)
 It is possible to only fetch submissions that are either ungraded or have a score < 1.0.
-Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases. 
+Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases.
 This can be achieved by appending the `--resub` flag to any use of the `download` subcommand.
 
 
@@ -233,6 +252,7 @@ Include this field to (attempt to) run onlineTA at address `ADDR` for each submi
 
 
 ### Fully fledged example template
+
 ```yaml
 name: Mega assignment
 passing-points: 42
@@ -272,4 +292,3 @@ tasks:
       rubric: |
         [*] You did extra work! It won't help you though.
 ```
-
