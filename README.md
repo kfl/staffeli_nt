@@ -292,3 +292,43 @@ tasks:
       rubric: |
         [*] You did extra work! It won't help you though.
 ```
+
+
+Contributing to `staffeli_nt`
+==============================
+
+If you want to contribute to `staffeli_nt` or run type checking locally:
+
+### Setting up the development environment
+
+1. **Clone and sync with dev dependencies**:
+
+   ```sh
+   git clone https://github.com/kfl/staffeli_nt.git
+   cd staffeli_nt
+   uv sync --extra dev
+   ```
+
+   This installs the package along with development tools like mypy and type stubs.
+
+### Running type checks
+
+To run mypy type checking:
+
+```sh
+uv run mypy --no-incremental -p staffeli_nt
+```
+
+### Making changes
+
+After making code changes, you can test them locally by reinstalling:
+
+```sh
+uv tool install . --force --reinstall
+```
+
+Or for development, you can use `uv run` to run the tool directly from the repository without installing:
+
+```sh
+uv run staffeli download <course_id> <template.yaml> <assignment-dir>
+```
