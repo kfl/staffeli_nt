@@ -17,7 +17,7 @@ def grade(submission, grade, feedback, dry_run=True):
     try:
         for comment in submission.submission_comments:
             try:
-                attachments = comment['attachments']
+                attachments = comment.attachments
             except KeyError:
                 attachments = []
 
@@ -27,7 +27,7 @@ def grade(submission, grade, feedback, dry_run=True):
                     break
 
                 try:
-                    contents = download(attachment['url']).decode('utf-8')
+                    contents = download(attachment.url).decode('utf-8')
                 except UnicodeDecodeError:
                     contents = ''
 

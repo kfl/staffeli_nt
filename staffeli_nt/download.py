@@ -184,7 +184,7 @@ def main(api_url, api_key, args: argparse.Namespace):
                     if submission.score is None or submission.score < 1.0:
                         files = [s for s in submission.attachments]
                         # tag entire handin
-                        uuid = '-'.join(sorted([a['uuid'] for a in files]))
+                        uuid = '-'.join(sorted([a.uuid for a in files]))
                         try:
                             handins[uuid]['students'].append(user)
                         except KeyError:
@@ -199,7 +199,7 @@ def main(api_url, api_key, args: argparse.Namespace):
                 files = [s for s in submission.attachments]
 
                 # tag entire handin
-                uuid = '-'.join(sorted([a['uuid'] for a in files]))
+                uuid = '-'.join(sorted([a.uuid for a in files]))
                 try:
                     handins[uuid]['students'].append(user)
                 except KeyError:
@@ -230,7 +230,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         os.mkdir(base)
 
         # Count number of zip-files in handin
-        num_zip_files = sum([1 if ".zip" in x['filename'].lower() or x['mime_class'] == 'zip' else 0 for x in handin['files']])
+        num_zip_files = sum([1 if ".zip" in x.filename.lower() or x.mime_class == 'zip' else 0 for x in handin['files']])
         if num_zip_files > 1:
             print(f"Submission contains {num_zip_files} files that look like zip-files.\nWill attempt to unzip into separate directories.")
             if template.onlineTA is not None:
@@ -238,14 +238,14 @@ def main(api_url, api_key, args: argparse.Namespace):
         # download submission
         for attachment in handin['files']:
             # download attachment
-            filename = attachment['filename']
+            filename = attachment.filename
             path = os.path.join(base, filename)
-            data = download(attachment['url'])
+            data = download(attachment.url)
             with open(path, 'wb') as bf:
                 bf.write(data)
 
             # unzip attachments
-            if attachment['mime_class'] == 'zip':
+            if attachment.mime_class == 'zip':
                 unpacked = os.path.join(base, 'unpacked')
                 # Some students might hand in multiple zip-files
                 # if they do, unpack those files into uniquely-named directories

@@ -191,7 +191,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
             # This *might* become problematic, wrt. section changes etc.
             files = [s for s in submission.attachments]
             # tag entire handin, by joining uuid for each file in the handin
-            uuid = '-'.join(sorted([a['uuid'] for a in files]))
+            uuid = '-'.join(sorted([a.uuid for a in files]))
             try:
                 handins[uuid]['students'].append(user)
             except KeyError:
