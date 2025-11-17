@@ -172,7 +172,7 @@ def main(api_url, api_key, args: argparse.Namespace):
             )
         )
 
-        if hasattr(submission, 'attachments'):
+        if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
             print(f'User {user.name} handed in something')
             # NOTE: This is a terribly hacky solution and should really be rewritten
             # collect which attachments to download

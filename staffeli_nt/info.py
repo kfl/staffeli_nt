@@ -184,7 +184,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     for submission in submissions:
         user = course.get_user(submission.user_id, include=['enrollments'])
 
-        if hasattr(submission, 'attachments'):
+        if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
             print(f'User {user.name} handed in something')
             # each section is a key, pointing to a list of ku_id
             # user.enrollments[0] is the first enrollment for the user.
