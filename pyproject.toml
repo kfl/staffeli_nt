@@ -1,6 +1,6 @@
 [project]
 name = "staffeli-nt"
-version = "0.1.0"
+version = "0.2.0"
 description = "Staffeli NT Technology"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -14,7 +14,7 @@ authors = [
 ]
 
 dependencies = [
-    "canvasapi==2.2.0",
+    "canvasapi>=3.3.0",
     "ruamel-yaml>=0.16.10",
 ]
 

@@ -184,14 +184,14 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     for submission in submissions:
         user = course.get_user(submission.user_id, include=['enrollments'])
 
-        if hasattr(submission, 'attachments'):
+        if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
             print(f'User {user.name} handed in something')
             # each section is a key, pointing to a list of ku_id
             # user.enrollments[0] is the first enrollment for the user.
             # This *might* become problematic, wrt. section changes etc.
             files = [s for s in submission.attachments]
             # tag entire handin, by joining uuid for each file in the handin
-            uuid = '-'.join(sorted([a['uuid'] for a in files]))
+            uuid = '-'.join(sorted([a.uuid for a in files]))
             try:
                 handins[uuid]['students'].append(user)
             except KeyError:
