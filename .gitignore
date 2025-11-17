@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# uv
+# Note: uv.lock should be committed for reproducibility

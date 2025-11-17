@@ -1,8 +1,8 @@
 import collections
 
-from typing import Optional, List, Tuple
-from canvasapi import Canvas # type: ignore
-from ruamel.yaml import YAML # type: ignore
+from typing import Optional, List, Tuple, Any
+from canvasapi import Canvas  # type: ignore[import-untyped]
+from ruamel.yaml import YAML
 
 yaml = YAML()
 yaml.indent(mapping=4, sequence=2, offset=2)
@@ -193,7 +193,7 @@ class Solution:
 
     def serialize(self):
 
-        inner = [ ('feedback', self.feedback) ]
+        inner : list[tuple[str, Any]] = [ ('feedback', self.feedback) ]
 
         if self.points is not None:
             inner.extend((('grade', self.grade),
@@ -240,7 +240,7 @@ class GradingSheet:
         ])
 
     def total(self):
-        total = 0
+        total: float = 0.0
 
         for solution in self.solutions:
             total += solution.grade
@@ -289,7 +289,7 @@ def parse_sheet(data):
                 bonus = v['bonus'] if 'bonus' in v else None,
                 points = v['points'] if 'points' in v else None,
                 grade = v['grade'] if 'points' in v else None,
-                feedback = v['feedback']  if 'feedback' in v else None
+                feedback = v['feedback']  if 'feedback' in v else ""
             )
             for (k, v) in flat(struct['solutions'])
         ]
@@ -346,7 +346,7 @@ def parse_template(data):
                 title=t[name]['title'],
                 points=t[name]['points'] if 'points' in t[name] else None, # max points
                 default=t[name]['default'] if 'default' in t[name] else None, # default points
-                rubric=t[name]['rubric'] if 'rubric' in t[name] else None # default feedback
+                rubric=t[name]['rubric'] if 'rubric' in t[name] else "" # default feedback
             )
         )
         # TODO warn about spurious fields

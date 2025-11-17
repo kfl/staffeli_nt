@@ -1,29 +1,31 @@
-import os
 import sys
 import argparse
 import hashlib
-from pathlib import Path
 import re
 import math
-from vas import *
-from util import *
+from .vas import *
+from .util import *
 from typing import Dict, Any
+
 
 def digest(data):
     return hashlib.sha256(data).digest()
 
+
 def kuid(login_id):
     return login_id.split('@', maxsplit=1)[0]
 
+
 def smart_key(name):
-   parts = re.findall('[^0-9]+|[0-9]+', name)
-   key = []
-   for part in parts:
-       try:
-          key.append(format(int(part), '05'))
-       except ValueError:
-          key.append(part)
-   return key
+    parts = re.findall('[^0-9]+|[0-9]+', name)
+    key = []
+    for part in parts:
+        try:
+            key.append(format(int(part), '05'))
+        except ValueError:
+            key.append(part)
+    return key
+
 
 def sort_by_name(named):
     return sorted( list(named), key=lambda x: smart_key(x.name) )
@@ -93,7 +95,7 @@ def distribute(bags, verbose=True, debug=False):
     if (verbose or debug):
         print("[INFO] Before redistribution:")
         print("{0:32}handins".format("Hold"))
-        for (key,handins) in bags.items():
+        for (key, handins) in bags.items():
             print("{0:32}{1}".format(key, len(handins)))
 
     # We iterate over all bags, sorted in order of descending number of handins
@@ -153,7 +155,7 @@ def distribute(bags, verbose=True, debug=False):
 #     [handins] is a list of ku-id's
 #               either singular or joined by '-' for group assignments
 # returns: the constructed dictionary
-def get_handins_by_sections(course):
+def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     assignments = sort_by_name(course.get_assignments())
     print('\nAssignments:')
     for n, assignment in enumerate(assignments):
@@ -186,7 +188,7 @@ def get_handins_by_sections(course):
             print(f'User {user.name} handed in something')
             # each section is a key, pointing to a list of ku_id
             # user.enrollments[0] is the first enrollment for the user.
-            # This *might* become problematic, wrt. section changes etc. 
+            # This *might* become problematic, wrt. section changes etc.
             files = [s for s in submission.attachments]
             # tag entire handin, by joining uuid for each file in the handin
             uuid = '-'.join(sorted([a['uuid'] for a in files]))
@@ -208,7 +210,7 @@ def get_handins_by_sections(course):
             student_names = ', '.join([u.name for u in handin['students']])
             ku_ids = '-'.join([kuid(u.login_id) for u in handin['students']])
             # If a group assignment has students from multiple sections,
-            # just grab the first section and pretend they all belong to that one    
+            # just grab the first section and pretend they all belong to that one
             handin_section = secname_lookup[handin['students'][0].enrollments[0]["course_section_id"]]
             users_and_sections[handin_section].append(ku_ids)
 
@@ -280,5 +282,3 @@ def main(api_url, api_key, args: argparse.Namespace):
     else:
         print("Non-valid arguments.")
         sys.exit(1)
-
-

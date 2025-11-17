@@ -1,0 +1,46 @@
+[project]
+name = "staffeli-nt"
+version = "0.1.0"
+description = "Staffeli NT Technology"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Ken Friis Larsen" },
+    { name = "Mads Obitsø" },
+    { name = "Mathias Hall-Andersen" },
+    { name = "William Due" },
+    { name = "Jacob Herbst" }
+]
+
+dependencies = [
+    "canvasapi==2.2.0",
+    "ruamel-yaml>=0.16.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.0",
+    "types-requests",
+    "types-PyYAML",
+]
+
+[project.scripts]
+staffeli = "staffeli_nt.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["staffeli_nt"]
+
+[tool.mypy]
+incremental = false
+check_untyped_defs = true
+disallow_untyped_defs = false
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true

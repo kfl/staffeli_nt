@@ -26,13 +26,66 @@ else they can easily impersonate you using a tool like Staffeli.
 Unfortunately, to the best of our knowledge, Canvas has no means to
 segregate or specialize tokens, so this is really "all or nothing".
 
-Install required libraries
---------------------------
+Installation
+------------
 
-    $ pip3 install -r requirements.txt
+### Using uv (recommended)
 
-Or you can install in a [virtual
-environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
+1. **Install uv** if you haven't already:
+
+   ```sh
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+   Or on Windows:
+
+   ```powershell
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+2. **Clone the repository** and navigate to it:
+
+   ```sh
+   git clone https://github.com/kfl/staffeli_nt.git
+   cd staffeli_nt
+   ```
+
+3. **Sync dependencies** (creates virtual environment and installs packages):
+
+   ```sh
+   uv sync
+   ```
+
+4. **Install the `staffeli` tool for your user**:
+
+   ```sh
+   uv tool install .
+   ```
+
+   This makes the `staffeli` tool available from anywhere on your system.
+
+5. **Use the `staffeli` tool**:
+
+   ```sh
+   staffeli download <course_id> <template.yaml> <assignment-dir>
+   ```
+
+6. **Update after pulling new changes**:
+
+    ```sh
+    uv tool install . --force --reinstall
+    ```
+
+7. **Uninstall the `staffeli` tool**:
+
+    ```sh
+    uv tool uninstall staffeli-nt
+    ```
+
+
+### Using pip (traditional method)
+
+If you prefer using pip, you can install the package:
 
  1. Create a virtual environment called `env`.
 
@@ -54,48 +107,53 @@ environment](https://packaging.python.org/guides/installing-using-pip-and-virtua
 
         $ .\env\Scripts\activate
 
- 3. Now install the requirements for `staffeli_nt` in `env`
+ 3. Now install `staffeli_nt` in editable mode in `env`
 
-        $ pip3 install -r requirements.txt
+        $ pip install -e .
 
+    This also makes the `staffeli` tool available (**only within the activated virtual environment**).
 
+Alternatively, if you need a `requirements.txt` file:
+
+        $ pip install pip-tools
+        $ pip-compile pyproject.toml -o requirements.txt
+        $ pip install -r requirements.txt
 
 
 Fetch Submissions for an Assignment
 -----------------------------------
 There are multiple options for fetching submissions.
 
-The general command is `python <staffeli_nt_path> download <course_id> <template.yaml> <assignment-dir> [flags]`, where
-- `<staffeli_nt_path>` is the path to the directory where `staffeli_nt` is located, i.e. where the files `download.py` and `upload.py` etc. can be found.
+The general command is `staffeli download <course_id> <template.yaml> <assignment-dir> [flags]`, where
 - `<course_id>` is the canvas `course_id` for the course.
 - `<template.yaml>` is the template file to use when generating the `grade.yml` file for each submission
 - `<assignment_dir>` is a *non-existing* directory, that staffeli will create and store the submissions in.
 
-**Windows**:  
-Since `staffeli_nt` is written in `python3`, you will need to invoke it via your `python3` interpreter. 
-Example: `python <staffeli_nt_path> download <course_id> <template.yml> <assignment-dir> [flags]`
 
-**Fetching all submissions**:  
+**Fetching all submissions**:
 To fetch **all** submissions from the course with id `12345`, using the template-file `ass1-template.yml` and create a new directory "ass1dir" to store the submissions in:
 
-    $ python <staffeli_nt_path> download 12345 ass1-template.yml ass1dir
+    $ staffeli download 12345 ass1-template.yml ass1dir
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch.
-For each submission, a directory will be created in `<assignment_dir>`, in which the handed-in files of the submission will be stored, alongside a file `grade.yml` generated form the `<template.yml>` for a TA to fill out during grading of the assignment.
+For each submission, a directory will be created in `<assignment_dir>`, in which the handed-in files of the submission will be stored, alongside a file `grade.yml` generated from the `<template.yaml>`.
 Submission comments, if any, will be downloaded as well, and stored alongside `grade.yml` and the files of the hand-in.
 
-*In case the student hands in a file called `grade.yml` it will be overwritten by staffeli. If the student hands in a file called `submission_comments.txt` and has written submission comments on the submission, the downloaded submission comments will be renamed.*
+*In case the student hands in a file called `grade.yml` it will be overwritten by staffeli. If the student hands in a file called `submission_comments.txt` and has written submission comments on the Canvas website, these comments will also overwrite the handed-in file.*
 
 ### Flags
+
 #### Fetching all submissions for a section
+
 What we call "Hold", canvas/absalon calls sections.
 To fetch all submissions for an assignment, where the student belongs to a given section, and the `<course_id>` is `12345`:
 
-    $ python <staffeli_nt_path> download 12345 ass1-template.yml ass1dir --select-section
+    $ staffeli download 12345 ass1-template.yml ass1dir --select-section
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by a list of sections for you to choose from.
 
 #### Fetching specific submissions (based on kuid)
+
 It is possible to fetch specific submissions based on a list of kuids.
 To do this, create a YAML-file with the following format:
 
@@ -111,10 +169,9 @@ TA2:
 
 To then fetch all submissions for an assignment for a given TA:
 
-    $ python <staffeli_nt_path> download <course_id> ass1-template.yml ass1dir --select-ta ta_list.yml
+    $ staffeli download <course_id> ass1-template.yml ass1dir --select-ta ta_list.yml
 
 where `ta_list.yml` is a YAML-file following the above format.
-
 
 This will present you with a list of assignments for the course, where you will interactively choose which assignment to fetch, followed by the list of TA's from your `ta_list.yml` file.
 Selecting a TA, will fetch submissions from each `kuid` in the file, associated with the chosen TA, i.e. selecting `TA1` will fetch submission from `kuid1`, `kuid2` and `kuid3`.
@@ -129,43 +186,39 @@ This will (attempt to) run onlineTA for each downloaded submission.
 
 
 #### Fetching only ungraded submissions (resubs)
-It is possile to only fetch submissions that are either ungraded or have a score < 1.0.
-Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases. 
+It is possible to only fetch submissions that are either ungraded or have a score < 1.0.
+Currently this is implemented specifically for the PoP-course and might not be available in the current form in later releases.
 This can be achieved by appending the `--resub` flag to any use of the `download` subcommand.
-
 
 
 Upload Feedback and grades
 --------------------------
-
-Use `python <staffeli_nt_path> upload <template.yaml> <assignment-dir> [--live] [--step]`.
-The default to do a *dry run*, that is **not** to upload anything
+Use `staffeli upload <template.yaml> <assignment-dir> [--live] [--step]`.
+The default is to do a *dry run*, that is **not** to upload anything
 unless the `--live` flag is given.
 
 For instance, to review all feedback for submissions in the directory
 `ass1` before uploading:
 
-    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --step
-
+    $ staffeli upload ass1-template.yml ass1 --step
 
 To upload all feedback for submissions in the directory
 `ass1`:
 
-    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --live
+    $ staffeli upload ass1-template.yml ass1 --live
 
 To upload feedback for a single submission:
 
-    $ python <staffeli_nt_path> upload-single <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
+    $ staffeli upload-single <POINTS> <meta.yml> <grade.yml> <feedback.txt> [--live]
 
+To generate `feedback.txt` locally for submissions in the directory
+`ass1`:
 
-To generate `feedback.txt` locally for submissions in the directory `ass1`:
-
-    $ python <staffeli_nt_path> upload ass1-template.yml ass1 --write-local
+    $ staffeli upload ass1-template.yml ass1 --write-local
 
 
 Template format
 ---------------
-
 A (minimal) template could look like:
 
 ```yaml
@@ -199,6 +252,7 @@ Include this field to (attempt to) run onlineTA at address `ADDR` for each submi
 
 
 ### Fully fledged example template
+
 ```yaml
 name: Mega assignment
 passing-points: 42
@@ -237,4 +291,44 @@ tasks:
       title: Bonus tasks that do not give points, or another option for general comments
       rubric: |
         [*] You did extra work! It won't help you though.
+```
+
+
+Contributing to `staffeli_nt`
+==============================
+
+If you want to contribute to `staffeli_nt` or run type checking locally:
+
+### Setting up the development environment
+
+1. **Clone and sync with dev dependencies**:
+
+   ```sh
+   git clone https://github.com/kfl/staffeli_nt.git
+   cd staffeli_nt
+   uv sync --extra dev
+   ```
+
+   This installs the package along with development tools like mypy and type stubs.
+
+### Running type checks
+
+To run mypy type checking:
+
+```sh
+uv run mypy -p staffeli_nt
+```
+
+### Making changes
+
+After making code changes, you can test them locally by reinstalling:
+
+```sh
+uv tool install . --force --reinstall
+```
+
+Or for development, you can use `uv run` to run the tool directly from the repository without installing:
+
+```sh
+uv run staffeli download <course_id> <template.yaml> <assignment-dir>
 ```

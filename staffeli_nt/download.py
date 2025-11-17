@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Dict, Any
 import argparse
 
-
-from vas import *
-from util import *
+from .vas import *
+from .util import *
 
 def digest(data):
     return hashlib.sha256(data).digest()
@@ -32,17 +31,16 @@ def smart_key(name):
 def sort_by_name(named):
     return sorted( list(named), key=lambda x: smart_key(x.name) )
 
-def grab_submission_comments(submission):
+def grab_submission_comments(submission) -> str:
     if len(submission.submission_comments) == 0:
-        return []
+        return ""
     comments = []
     for comment in submission.submission_comments:
         date = comment['created_at']
         c = comment['comment']
         name = comment['author_name']
         comments.append("{0} - {1}: {2}".format(date, name, c))
-    comments = "\n".join(sorted(comments))
-    return comments
+    return "\n".join(sorted(comments))
 
 def add_subparser(subparsers: argparse._SubParsersAction):
     parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
@@ -55,17 +53,55 @@ def add_subparser(subparsers: argparse._SubParsersAction):
     parser.set_defaults(main=main)
 
 
+def validate_inputs(path_destination: str, path_template: str, select_ta: str | None):
+    """Validate all local inputs before making network requests.
+
+    Returns:
+        tuple: (template, tas, stud) where tas and stud are None if select_ta is not used
+    """
+    if os.path.exists(path_destination):
+        print(f"Error: Destination directory '{path_destination}' already exists.")
+        print("Please choose a different directory name or remove the existing directory.")
+        sys.exit(1)
+
+    try:
+        with open(path_template, 'r') as f:
+            template = parse_template(f.read())
+    except FileNotFoundError:
+        print(f"Error: Template file '{path_template}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Failed to parse template file '{path_template}'")
+        print(f"Reason: {e}")
+        sys.exit(1)
+
+    tas = None
+    stud = None
+    if select_ta is not None:
+        try:
+            with open(select_ta, 'r') as f:
+                (tas, stud) = parse_students_and_tas(f)
+        except FileNotFoundError:
+            print(f"Error: TA list file '{select_ta}' not found.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: Failed to parse TA list file '{select_ta}'")
+            print(f"Reason: {e}")
+            print("Do all TAs have at least one student attached?")
+            sys.exit(1)
+
+    return (template, tas, stud)
+
+
 def main(api_url, api_key, args: argparse.Namespace):
     course_id = args.course_id
     path_template = args.path_template
     path_destination = args.path_destination
     select_section = args.select_section
-    select_ta = args.select_ta # use --select-ta file.yaml
+    select_ta = args.select_ta
     resubmissions_only = args.resub
-    
-    # sanity check
-    with open(path_template, 'r') as f:
-        template = parse_template(f.read())
+
+    template, tas, stud = validate_inputs(path_destination, path_template, select_ta)
 
     canvas = Canvas(api_url, api_key)
     course = canvas.get_course(course_id)
@@ -81,12 +117,6 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     ta = None
     if select_ta is not None:
-        with open(select_ta, 'r') as f:
-            try:
-                (tas,stud) = parse_students_and_tas(f)
-            except Exception as e:
-                print(f"Failed to parse ta-list. Do all TA's have at least one student attached?\nexiting.")
-                sys.exit(1)
         print('\nTAs:')
         for n, ta in enumerate(tas):
             print('%2d :' % n, ta)
@@ -96,8 +126,8 @@ def main(api_url, api_key, args: argparse.Namespace):
         students = []
         # Horrible hack to fetch users based on ku-ids
         for i in stud[index]:
-            students += course.get_users(search_term=i,enrollment_type=['student'],
-                                        enrollment_state='active')
+            students += course.get_users(search_term=i, enrollment_type=['student'],
+                                         enrollment_state='active')
     section = None
     if select_section:
         sections = sort_by_name(course.get_sections())
@@ -151,7 +181,7 @@ def main(api_url, api_key, args: argparse.Namespace):
                 if hasattr(submission, 'score'):
                     print(f'Score: {submission.score}')
                     # If a submission has not yet been graded, submission.score will be None
-                    if submission.score == None or submission.score < 1.0:
+                    if submission.score is None or submission.score < 1.0:
                         files = [s for s in submission.attachments]
                         # tag entire handin
                         uuid = '-'.join(sorted([a['uuid'] for a in files]))
@@ -163,7 +193,6 @@ def main(api_url, api_key, args: argparse.Namespace):
                                 'students': [user],
                                 'comments': grab_submission_comments(submission)
                             }
-
 
             # else, grab everything
             else:
