@@ -285,7 +285,8 @@ def main(api_url, api_key, args: argparse.Namespace):
 
         # create grading sheet from template
         grade = os.path.join(base, 'grade.yml')
-        sheet = create_sheet(template, handin['students'])
+        sheet = create_sheet(template, sorted(handin['students'],
+                                              key=lambda u: u.login_id))
         with open(grade, 'w') as f:
             yaml.dump(sheet.serialize(), f)
 
