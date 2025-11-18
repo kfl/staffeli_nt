@@ -8,6 +8,7 @@ from zipfile import BadZipFile
 from pathlib import Path
 from typing import Dict, Any
 import argparse
+import concurrent.futures
 
 from .vas import *
 from .util import *
@@ -93,6 +94,49 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
     return (template, tas, stud)
 
 
+def process_submission(submission, course, resubmissions_only):
+    """
+    Processes a single submission to fetch user data and prepare handin info.
+    This function is designed to be run in a parallel executor.
+    """
+    user = course.get_user(submission.user_id)
+    result = {'user': user, 'is_empty': True} # Assume empty by default
+
+    if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
+        print(f'User {user.name} handed in something')
+        # NOTE: This is a terribly hacky solution and should really be rewritten
+        # collect which attachments to download
+        # if only fetching resubmissions
+        if resubmissions_only:
+            if hasattr(submission, 'score'):
+                print(f'Score: {submission.score}')
+                # If a submission has not yet been graded, submission.score will be None
+                if submission.score is None or submission.score < 1.0:
+                    files = [s for s in submission.attachments]
+                    # tag entire handin
+                    uuid = '-'.join(sorted([a.uuid for a in files]))
+                    handin_data = {
+                        'files': files,
+                        'students': [user],
+                        'comments': grab_submission_comments(submission)
+                    }
+                    result.update({'is_empty': False, 'uuid': uuid, 'handin_data': handin_data})
+        # else, grab everything
+        else:
+            files = [s for s in submission.attachments]
+
+            # tag entire handin
+            uuid = '-'.join(sorted([a.uuid for a in files]))
+            handin_data = {
+                'files': files,
+                'students': [user],
+                'comments': grab_submission_comments(submission)
+            }
+            result.update({'is_empty': False, 'uuid': uuid, 'handin_data': handin_data})
+
+    return result
+
+
 def main(api_url, api_key, args: argparse.Namespace):
     course_id = args.course_id
     path_template = args.path_template
@@ -163,57 +207,38 @@ def main(api_url, api_key, args: argparse.Namespace):
     else:
         submissions = assignment.get_submissions(include=['submission_comments'])
 
-    for submission in submissions:
-        user = course.get_user(submission.user_id)
-        # add to participant list
-        participants.append(
-            create_student(
-                user
-            )
-        )
+    # --- Parallel "Map" Phase ---
+    # Process submissions in parallel to fetch user data and prepare handin info
+    processed_results = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_submission = {executor.submit(process_submission, s, course, resubmissions_only): s for s in submissions}
+        for future in concurrent.futures.as_completed(future_to_submission):
+            try:
+                processed_results.append(future.result())
+            except Exception as e:
+                print(f"An error occurred while processing a submission: {e}")
 
-        if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
-            print(f'User {user.name} handed in something')
-            # NOTE: This is a terribly hacky solution and should really be rewritten
-            # collect which attachments to download
-            # if only fetching resubmissions
-            if resubmissions_only:
-                if hasattr(submission, 'score'):
-                    print(f'Score: {submission.score}')
-                    # If a submission has not yet been graded, submission.score will be None
-                    if submission.score is None or submission.score < 1.0:
-                        files = [s for s in submission.attachments]
-                        # tag entire handin
-                        uuid = '-'.join(sorted([a.uuid for a in files]))
-                        try:
-                            handins[uuid]['students'].append(user)
-                        except KeyError:
-                            handins[uuid] = {
-                                'files': files,
-                                'students': [user],
-                                'comments': grab_submission_comments(submission)
-                            }
+    # --- Sequential "Reduce" Phase ---
+    # Consolidate the results from the parallel phase into the final data structures
+    for result in processed_results:
+        user = result['user']
+        participants.append(create_student(user))
 
-            # else, grab everything
-            else:
-                files = [s for s in submission.attachments]
-
-                # tag entire handin
-                uuid = '-'.join(sorted([a.uuid for a in files]))
-                try:
-                    # NOTE on group hand-ins: This logic keeps the comments from the first-processed
-                    # submission and discards comments from other group members. This assumes that
-                    # for a group hand-in, all submission comments are identical.
-                    handins[uuid]['students'].append(user)
-                except KeyError:
-                    handins[uuid] = {
-                        'files': files,
-                        'students': [user],
-                        'comments': grab_submission_comments(submission)
-                    }
-        else:
-            # empty handin
+        if result['is_empty']:
             empty_handins.append(user)
+        else:
+            uuid = result['uuid']
+            handin_data = result['handin_data']
+            # NOTE on group hand-ins: This logic keeps the comments from the first-processed
+            # submission and discards comments from other group members. This assumes that
+            # for a group hand-in, all submission comments are identical.
+            try:
+                # If handin (by content) already exists, append student
+                handins[uuid]['students'].append(user)
+            except KeyError:
+                # Otherwise, add the new handin
+                handins[uuid] = handin_data
+
 
     # create submissions directory structure
     home = path_destination
@@ -237,7 +262,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         if num_zip_files > 1:
             print(f"Submission contains {num_zip_files} files that look like zip-files.\nWill attempt to unzip into separate directories.")
             if template.onlineTA is not None:
-                print("Will not submit to OnlineTA, due to multiple zip-files") 
+                print("Will not submit to OnlineTA, due to multiple zip-files")
         # download submission
         for attachment in handin['files']:
             # download attachment
