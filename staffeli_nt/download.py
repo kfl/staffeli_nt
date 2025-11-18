@@ -225,7 +225,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         print(f'Downloading submission from: {student_names}')
 
         # create submission directory
-        name = '-'.join([kuid(u.login_id) for u in handin['students']])
+        name = '-'.join(sorted([kuid(u.login_id) for u in handin['students']]))
         base = os.path.join(home, name)
         os.mkdir(base)
 
@@ -310,7 +310,8 @@ def main(api_url, api_key, args: argparse.Namespace):
     # create a list of students with empty handins
     with open(empty, 'w') as f:
         yaml.dump(
-            [create_student(p).serialize() for p in empty_handins],
+            [create_student(p).serialize()
+             for p in sorted(empty_handins, key=lambda u: u.login_id)],
             f
         )
 
