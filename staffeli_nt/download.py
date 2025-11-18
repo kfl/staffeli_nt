@@ -201,6 +201,9 @@ def main(api_url, api_key, args: argparse.Namespace):
                 # tag entire handin
                 uuid = '-'.join(sorted([a.uuid for a in files]))
                 try:
+                    # NOTE on group hand-ins: This logic keeps the comments from the first-processed
+                    # submission and discards comments from other group members. This assumes that
+                    # for a group hand-in, all submission comments are identical.
                     handins[uuid]['students'].append(user)
                 except KeyError:
                     handins[uuid] = {
