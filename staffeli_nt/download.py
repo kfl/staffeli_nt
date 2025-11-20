@@ -4,14 +4,21 @@ import shutil
 import zipfile
 import hashlib
 import re
+import time
 from zipfile import BadZipFile
 from pathlib import Path
 from typing import Dict, Any, Tuple
 import argparse
 import concurrent.futures
 
+from canvasapi.exceptions import RateLimitExceeded
 from .vas import *
 from .util import *
+
+# Canvas API rate limit settings
+MAX_API_WORKERS = 30
+RATE_LIMIT_RETRY_DELAY = 2.0  # 2s wait when rate limited
+MAX_RETRIES = 3
 
 def digest(data):
     return hashlib.sha256(data).digest()
@@ -94,12 +101,22 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
     return (template, tas, stud)
 
 
-def process_submission(submission, course, resubmissions_only):
+def process_submission(submission, course, resubmissions_only, retry_count=0):
     """
     Processes a single submission to fetch user data and prepare handin info.
     This function is designed to be run in a parallel executor.
     """
-    user = course.get_user(submission.user_id)
+    try:
+        user = course.get_user(submission.user_id)
+    except RateLimitExceeded as e:
+        if retry_count < MAX_RETRIES:
+            print(f'Rate limit exceeded, retrying in {RATE_LIMIT_RETRY_DELAY}s... (attempt {retry_count + 1}/{MAX_RETRIES})')
+            time.sleep(RATE_LIMIT_RETRY_DELAY)
+            return process_submission(submission, course, resubmissions_only, retry_count + 1)
+        else:
+            print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
+            raise
+
     result = {'user': user, 'is_empty': True}  # Assume empty by default
 
     if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
@@ -141,6 +158,9 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     Processes a single handin: downloads files, creates directories, and generates grading sheets.
     This function is designed to be run in a parallel executor.
     """
+    # Create a local YAML instance for this thread (ruamel.yaml is not thread-safe)
+    local_yaml = create_yaml()
+
     uuid, handin = item
     student_names = ', '.join([u.name for u in handin['students']])
     print(f'Downloading submission from: {student_names}')
@@ -163,9 +183,14 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
         # download attachment
         filename = attachment.filename
         path = os.path.join(base, filename)
-        data = download(attachment.url)
-        with open(path, 'wb') as bf:
-            bf.write(data)
+        try:
+            data = download(attachment.url)
+            with open(path, 'wb') as bf:
+                bf.write(data)
+        except Exception as e:
+            print(f'Error downloading {filename} from {student_names}: {e}')
+            # Continue processing other files rather than crashing
+            continue
 
         # unzip attachments
         if attachment.mime_class == 'zip':
@@ -205,7 +230,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     sheet = create_sheet(template,
                          sorted(handin['students'], key=lambda u: u.login_id))
     with open(grade, 'w') as f:
-        yaml.dump(sheet.serialize(), f)
+        local_yaml.dump(sheet.serialize(), f)
 
     # Dump submission comments
     if (handin['comments']):
@@ -282,7 +307,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     empty_handins = []
 
     # --- Unified Parallel Execution using a single Executor ---
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_API_WORKERS) as executor:
         # --- Phase 1: Map submissions to futures ---
         future_to_submission = {executor.submit(process_submission, s, course, resubmissions_only): s
                                 for s in submissions}

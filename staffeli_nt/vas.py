@@ -4,12 +4,22 @@ from typing import Optional, List, Tuple, Any
 from canvasapi import Canvas  # type: ignore[import-untyped]
 from ruamel.yaml import YAML
 
-yaml = YAML()
-yaml.indent(mapping=4, sequence=2, offset=2)
-yaml.Representer.add_representer(
-    collections.OrderedDict,
-    yaml.Representer.represent_dict
-)
+def create_yaml():
+    """Create a new YAML instance with standard configuration.
+
+    The ruamel.yaml library is not thread-safe, so each thread should
+    create its own YAML instance when running in parallel.
+    """
+    y = YAML()
+    y.indent(mapping=4, sequence=2, offset=2)
+    y.Representer.add_representer(
+        collections.OrderedDict,
+        y.Representer.represent_dict
+    )
+    return y
+
+# Global YAML instance for sequential use
+yaml = create_yaml()
 
 class Task:
     name: str
