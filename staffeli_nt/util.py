@@ -1,11 +1,34 @@
 import os
+import time
 import requests
 from zipfile import ZipFile
 from pathlib import Path
 
 
-def download(url):
-    return requests.get(url).content
+def download(url, retries=3, delay=1.0):
+    """Download a file from a URL with retry logic for transient failures.
+
+    Args:
+        url: The URL to download from
+        retries: Number of retry attempts for transient errors
+        delay: Delay in seconds between retries
+
+    Returns:
+        The downloaded content as bytes
+
+    Raises:
+        The last exception if all retries are exhausted
+    """
+    for attempt in range(retries):
+        try:
+            return requests.get(url).content
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                requests.exceptions.RequestException):
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
 
 
 def run_onlineTA(base, handin, url):
