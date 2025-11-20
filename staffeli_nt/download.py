@@ -27,27 +27,23 @@ def kuid(login_id):
     return login_id.split('@', maxsplit=1)[0]
 
 def smart_key(name):
-   parts = re.findall('[^0-9]+|[0-9]+', name)
-   key = []
-   for part in parts:
-       try:
-          key.append(format(int(part), '05'))
-       except ValueError:
-          key.append(part)
-   return key
+    parts = re.findall('[^0-9]+|[0-9]+', name)
+    key = []
+    for part in parts:
+        try:
+            key.append(format(int(part), '05'))
+        except ValueError:
+            key.append(part)
+    return key
 
 def sort_by_name(named):
-    return sorted( list(named), key=lambda x: smart_key(x.name) )
+    return sorted(list(named), key=lambda x: smart_key(x.name))
 
 def grab_submission_comments(submission) -> str:
-    if len(submission.submission_comments) == 0:
+    if not submission.submission_comments:
         return ""
-    comments = []
-    for comment in submission.submission_comments:
-        date = comment['created_at']
-        c = comment['comment']
-        name = comment['author_name']
-        comments.append("{0} - {1}: {2}".format(date, name, c))
+    comments = [f"{c['created_at']} - {c['author_name']}: {c['comment']}"
+                for c in submission.submission_comments]
     return "\n".join(sorted(comments))
 
 def add_subparser(subparsers: argparse._SubParsersAction):
@@ -108,14 +104,13 @@ def process_submission(submission, course, resubmissions_only, retry_count=0):
     """
     try:
         user = course.get_user(submission.user_id)
-    except RateLimitExceeded as e:
+    except RateLimitExceeded:
         if retry_count < MAX_RETRIES:
             print(f'Rate limit exceeded, retrying in {RATE_LIMIT_RETRY_DELAY}s... (attempt {retry_count + 1}/{MAX_RETRIES})')
             time.sleep(RATE_LIMIT_RETRY_DELAY)
             return process_submission(submission, course, resubmissions_only, retry_count + 1)
-        else:
-            print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
-            raise
+        print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
+        raise
 
     result = {'user': user, 'is_empty': True}  # Assume empty by default
 
@@ -171,7 +166,8 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     os.mkdir(base)
 
     # Count number of zip-files in handin
-    num_zip_files = sum([1 if ".zip" in x.filename.lower() or x.mime_class == 'zip' else 0 for x in handin['files']])
+    num_zip_files = sum(1 for x in handin['files']
+                        if ".zip" in x.filename.lower() or x.mime_class == 'zip')
     if num_zip_files > 1:
         print(f"Submission contains {num_zip_files} files that look like zip-files.\nWill attempt to unzip into separate directories.")
         if template.onlineTA is not None:
@@ -188,15 +184,21 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
             with open(path, 'wb') as bf:
                 bf.write(data)
         except Exception as e:
-            print(f'Error downloading {filename} from {student_names}: {e}')
-            # Continue processing other files rather than crashing
-            continue
+            error_msg = (
+                f"\nFailed to download file: {filename}\n"
+                f"  From: {student_names}\n"
+                f"  Submission directory: {base}\n"
+                f"  URL: {attachment.url}\n"
+                f"  Error: {e}"
+            )
+            print(error_msg)
+            raise RuntimeError(error_msg) from e
 
         # unzip attachments
         if attachment.mime_class == 'zip':
             unpacked = os.path.join(base, 'unpacked')
-            if (num_zip_files > 1 or os.path.exists(unpacked)):
-                unpacked = os.path.join(base, "{0}_{1}".format(filename, '_unpacked'))
+            if num_zip_files > 1 or os.path.exists(unpacked):
+                unpacked = os.path.join(base, f"{filename}_unpacked")
                 print(f"Attempting to unzip {filename} into {unpacked}")
             os.mkdir(unpacked)
             try:
@@ -233,14 +235,13 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
         local_yaml.dump(sheet.serialize(), f)
 
     # Dump submission comments
-    if (handin['comments']):
+    if handin['comments']:
         comment_path = os.path.join(base, 'submission_comments.txt')
-        if (os.path.exists(comment_path)):
+        if os.path.exists(comment_path):
             fname_i = 0
-            while(os.path.exists(comment_path)):
+            while os.path.exists(comment_path):
                 fname_i += 1
-                comment_fname = 'submission_comments({0}).txt'.format(fname_i)
-                comment_path = os.path.join(base, comment_fname)
+                comment_path = os.path.join(base, f'submission_comments({fname_i}).txt')
         with open(comment_path, 'w', encoding='utf-8-sig') as f:
             f.write(handin['comments'])
 
@@ -339,12 +340,15 @@ def main(api_url, api_key, args: argparse.Namespace):
         future_to_handin = {executor.submit(process_handin, item, path_destination, template): item
                             for item in handins.items()}
 
-        for future in concurrent.futures.as_completed(future_to_handin):
-            try:
-                future.result() # Check for exceptions during download
-            except Exception as e:
-                handin_item = future_to_handin[future]
-                print(f"An error occurred while downloading handin {handin_item[0]}: {e}")
+        try:
+            for future in concurrent.futures.as_completed(future_to_handin):
+                future.result()  # Check for exceptions during download
+        except Exception as e:
+            # Cancel all pending futures on first error
+            print("\nError detected, cancelling remaining downloads...")
+            for fut in future_to_handin.keys():
+                fut.cancel()
+            raise
 
     # --- Final Sequential File Writes ---
     with open(os.path.join(path_destination, 'empty.yml'), 'w') as f:
