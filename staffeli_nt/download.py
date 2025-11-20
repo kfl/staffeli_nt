@@ -11,7 +11,7 @@ from typing import Dict, Any, Tuple
 import argparse
 import concurrent.futures
 
-from canvasapi.exceptions import RateLimitExceeded
+from canvasapi.exceptions import RateLimitExceeded  # type: ignore[import-untyped]
 from .vas import *
 from .util import *
 
