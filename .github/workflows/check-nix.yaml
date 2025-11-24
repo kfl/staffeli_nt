@@ -30,6 +30,9 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Generate flake.lock
+        run: nix flake lock
+
       - name: Test nix-shell (non-flake compatibility)
         run: nix-shell --run "echo 'nix-shell works'"
 
