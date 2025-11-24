@@ -1,0 +1,77 @@
+{
+  description = "Staffeli NT - Canvas API tool for managing course assignments";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-compat = {
+      url = "github:edolstra/flake-compat";
+      flake = false;
+    };
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems }:
+    let
+      inherit (nixpkgs) lib;
+      forAllSystems = lib.genAttrs lib.systems.flakeExposed;
+    in
+    {
+      devShells = forAllSystems (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+
+          # Load workspace from uv.lock
+          workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+
+          # Create overlay with pyproject-build-systems
+          overlay = workspace.mkPyprojectOverlay {
+            sourcePreference = "wheel";
+          };
+
+          # Create Python set with overlay applied
+          python = pkgs.python314.override {
+            packageOverrides = lib.composeManyExtensions [
+              pyproject-build-systems.overlays.default
+              overlay
+            ];
+          };
+
+          # Create virtual environment with editablePackages
+          venv = python.pkgs.mkVirtualEnv "staffeli-nt-env" workspace.deps.default;
+
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [
+              venv
+              pkgs.uv
+            ];
+
+            shellHook = ''
+              echo "Staffeli NT development environment"
+              echo "Python: $(python --version)"
+              echo ""
+              echo "Available commands:"
+              echo "  staffeli - Run staffeli CLI"
+              echo "  uv run mypy -p staffeli_nt - Type checking"
+              echo "  uv run ruff check staffeli_nt/ - Linting"
+              echo "  uv run ruff format staffeli_nt/ - Formatting"
+            '';
+          };
+        });
+    };
+}
