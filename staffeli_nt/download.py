@@ -4,21 +4,23 @@ import shutil
 import zipfile
 import hashlib
 import re
-import time
+import random
+import threading
 from zipfile import BadZipFile
 from pathlib import Path
 from typing import Dict, Any, Tuple
 import argparse
 import concurrent.futures
 
-from canvasapi.exceptions import RateLimitExceeded  # type: ignore[import-untyped]
+from canvasapi.exceptions import RateLimitExceeded, CanvasException  # type: ignore[import-untyped]
 from .vas import *
 from .util import *
 
 # Canvas API rate limit settings
-MAX_API_WORKERS = 30
+MAX_API_WORKERS = 100
 RATE_LIMIT_RETRY_DELAY = 2.0  # 2s wait when rate limited
 MAX_RETRIES = 3
+SUBMISSION_BUFFER_SIZE = 30  # Buffer size for pagination consumption
 
 def digest(data):
     return hashlib.sha256(data).digest()
@@ -46,15 +48,92 @@ def grab_submission_comments(submission) -> str:
                 for c in submission.submission_comments]
     return "\n".join(sorted(comments))
 
-def add_subparser(subparsers: argparse._SubParsersAction):
-    parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
-    parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
-    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
-    parser.add_argument('path_destination', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
-    parser.add_argument('--select-section', action='store_true', help='whether section selection is used')
-    parser.add_argument('--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions')
-    parser.add_argument('--resub', action='store_true', help='whether only resubmissions should be fetched')
-    parser.set_defaults(main=main)
+def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, stud):
+    """
+    Get list of student IDs based on selection criteria.
+
+    Returns:
+        tuple: (student_ids, section) where section is None unless select_section is True
+    """
+    section = None
+
+    if select_ta:
+        print('\nTAs:')
+        for n, ta_name in enumerate(tas):
+            print('%2d :' % n, ta_name)
+        index = int(input('Select TA: '))
+        ta = tas[index]
+        students = []
+        for i in stud[index]:
+            # Need full user lookup for search_term matching
+            students += course.get_users(search_term=i,
+                                         enrollment_type=['student'],
+                                         enrollment_state='active')
+        student_ids = [s.id for s in students]
+
+    elif select_section:
+        sections = sort_by_name(course.get_sections())
+        print('\nSections:')
+        for n, sec in enumerate(sections):
+            print('%2d :' % n, sec.name)
+        index = int(input('Select section: '))
+        section = course.get_section(sections[index].id,
+                                     include=['students', 'enrollments'])
+        student_ids = [s['id']
+                       for s in section.students
+                       if all(e['enrollment_state'] == 'active'
+                              for e in s['enrollments'])]
+    else:
+        # Get all enrolled students using GraphQL (faster - only fetches IDs)
+        # Note: We query enrollments rather than users because Canvas GraphQL doesn't
+        # provide a way to query unique users with enrollment filtering. Students with
+        # multiple enrollments (e.g., in different sections) will appear multiple times,
+        # so we must deduplicate by user ID on the client side.
+
+        query = """
+        query($courseId: ID!, $cursor: String) {
+          course(id: $courseId) {
+            enrollmentsConnection(
+              filter: {types: StudentEnrollment, states: active}
+              first: 100
+              after: $cursor
+            ) {
+              nodes {
+                user {
+                  _id
+                }
+              }
+              pageInfo {
+                endCursor
+                hasNextPage
+              }
+            }
+          }
+        }
+        """
+
+        def fetch_all_enrollments():
+            """Generator that yields all enrollment user IDs across all pages."""
+            cursor = None
+            has_next_page = True
+
+            while has_next_page:
+                variables = {"courseId": course_id, "cursor": cursor}
+                result = canvas.graphql(query, variables=variables)
+                enrollments = result['data']['course']['enrollmentsConnection']
+
+                # Yield all user IDs from this page
+                yield from (int(node['user']['_id']) for node in enrollments['nodes'])
+
+                # Update pagination state
+                page_info = enrollments['pageInfo']
+                has_next_page = page_info['hasNextPage']
+                cursor = page_info['endCursor']
+
+        # Deduplicate user IDs (students may appear in multiple enrollments)
+        student_ids = list(set(fetch_all_enrollments()))
+
+    return student_ids, section
 
 
 def validate_inputs(path_destination: str, path_template: str, select_ta: str | None):
@@ -97,19 +176,29 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
     return (template, tas, stud)
 
 
-def process_submission(submission, course, resubmissions_only, retry_count=0):
+def process_submission(student_id, assignment, course, resubmissions_only, cancel_event, retry_count=0):
     """
-    Processes a single submission to fetch user data and prepare handin info.
-    This function is designed to be run in a parallel executor.
+    Fetches and processes a single submission for a student.
+    Handles its own rate limiting with retries and random jitter.
+    Uses cancel_event to allow interrupting retry delays.
     """
     try:
-        user = course.get_user(submission.user_id)
-    except RateLimitExceeded:
-        if retry_count < MAX_RETRIES:
-            print(f'Rate limit exceeded, retrying in {RATE_LIMIT_RETRY_DELAY}s... (attempt {retry_count + 1}/{MAX_RETRIES})')
-            time.sleep(RATE_LIMIT_RETRY_DELAY)
-            return process_submission(submission, course, resubmissions_only, retry_count + 1)
-        print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
+        submission = assignment.get_submission(student_id, include=['submission_comments'])
+        user = course.get_user(student_id)
+    except (RateLimitExceeded, CanvasException) as e:
+        # Check if it's a rate limit error (status 429)
+        if "429" in str(e) or isinstance(e, RateLimitExceeded):
+            if retry_count < MAX_RETRIES:
+                # Add random jitter (0-500ms) to avoid thundering herd problem
+                jitter = random.uniform(0, 0.5)
+                delay = RATE_LIMIT_RETRY_DELAY + jitter
+                print(f'Rate limit exceeded, retrying in {delay:.2f}s... (attempt {retry_count + 1}/{MAX_RETRIES})')
+                # Use interruptible wait instead of sleep
+                if cancel_event.wait(delay):
+                    # Event was set, we're shutting down
+                    raise InterruptedError("Operation cancelled during retry")
+                return process_submission(student_id, assignment, course, resubmissions_only, cancel_event, retry_count + 1)
+            print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
         raise
 
     result = {'user': user, 'is_empty': True}  # Assume empty by default
@@ -169,7 +258,8 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     num_zip_files = sum(1 for x in handin['files']
                         if ".zip" in x.filename.lower() or x.mime_class == 'zip')
     if num_zip_files > 1:
-        print(f"Submission contains {num_zip_files} files that look like zip-files.\nWill attempt to unzip into separate directories.")
+        print(f"Submission contains {num_zip_files} files that look like zip-files.")
+        print("Will attempt to unzip into separate directories.")
         if template.onlineTA is not None:
             print("Will not submit to OnlineTA, due to multiple zip-files")
 
@@ -246,6 +336,19 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
             f.write(handin['comments'])
 
 
+def add_subparser(subparsers: argparse._SubParsersAction):
+    parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
+    parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
+    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
+    parser.add_argument('path_destination', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
+    parser.add_argument('--select-section', action='store_true', help='whether section selection is used')
+    parser.add_argument('--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions')
+    parser.add_argument('--resub', action='store_true', help='whether only resubmissions should be fetched')
+    parser.add_argument('--buffersize', type=int, default=SUBMISSION_BUFFER_SIZE, metavar='N',
+                        help=f'buffer size for pagination consumption (default: {SUBMISSION_BUFFER_SIZE})')
+    parser.set_defaults(main=main)
+
+
 def main(api_url, api_key, args: argparse.Namespace):
     course_id = args.course_id
     path_template = args.path_template
@@ -253,6 +356,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     select_section = args.select_section
     select_ta = args.select_ta
     resubmissions_only = args.resub
+    buffersize = args.buffersize
 
     template, tas, stud = validate_inputs(path_destination, path_template, select_ta)
 
@@ -263,43 +367,14 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     print('\nAssignments:')
     for n, assignment in enumerate(assignments):
-        print('%2d :' % n, assignment.name)
+        print(f'{n:2d} :', assignment.name)
     index = int(input('Select assignment: '))
     assignment = assignments[index]
 
-    section = None
-    submissions = []
-
-    if select_ta:
-        print('\nTAs:')
-        for n, ta_name in enumerate(tas):
-            print('%2d :' % n, ta_name)
-        index = int(input('Select TA: '))
-        ta = tas[index]
-        students = []
-        for i in stud[index]:
-            students += course.get_users(search_term=i,
-                                         enrollment_type=['student'],
-                                         enrollment_state='active')
-        submissions = [assignment.get_submission(s.id, include=['submission_comments'])
-                       for s in students]
-    elif select_section:
-        sections = sort_by_name(course.get_sections())
-        print('\nSections:')
-        for n, sec in enumerate(sections):
-            print('%2d :' % n, sec.name)
-        index = int(input('Select section: '))
-        section = course.get_section(sections[index].id,
-                                     include=['students', 'enrollments'])
-        s_ids = [s['id']
-                 for s in section.students
-                 if all(e['enrollment_state'] == 'active'
-                        for e in s['enrollments'])]
-        submissions = section.get_multiple_submissions(assignment_ids=[assignment.id],
-                                                       student_ids=s_ids,
-                                                       include=['submission_comments'])
-    else:
-        submissions = assignment.get_submissions(include=['submission_comments'])
+    # Get student IDs based on selection criteria (TA/section/all)
+    student_ids, section = get_student_ids(canvas, course, course_id,
+                                           select_ta, select_section,
+                                           tas, stud)
 
     os.mkdir(path_destination)
 
@@ -307,18 +382,20 @@ def main(api_url, api_key, args: argparse.Namespace):
     participants = []
     empty_handins = []
 
-    # --- Unified Parallel Execution using a single Executor ---
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_API_WORKERS) as executor:
-        # --- Phase 1: Map submissions to futures ---
-        future_to_submission = {executor.submit(process_submission, s, course, resubmissions_only): s
-                                for s in submissions}
+    # Process submissions by fetching them in parallel from student IDs
+    # Create event for cancelling workers (used to interrupt retry delays)
+    cancel_event = threading.Event()
 
-        processed_results = []
-        for future in concurrent.futures.as_completed(future_to_submission):
-            try:
-                processed_results.append(future.result())
-            except Exception as e:
-                print(f"An error occurred while processing a submission: {e}")
+    # --- Unified Parallel Execution using a single Executor ---
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_API_WORKERS)
+    try:
+        # --- Phase 1: Fetch and process submissions in parallel (one per student) ---
+        print(f'Processing {len(student_ids)} submissions in parallel...')
+        processed_results = list(executor.map(
+            lambda sid: process_submission(sid, assignment, course, resubmissions_only, cancel_event),
+            student_ids,
+            buffersize=buffersize
+        ))
 
         # --- Phase 2: Reduce results to build handins dictionary ---
         for result in processed_results:
@@ -330,25 +407,49 @@ def main(api_url, api_key, args: argparse.Namespace):
                 uuid = result['uuid']
                 # This logic keeps the comments from the first-processed submission
                 # and assumes for a group hand-in, all comments are identical.
-                try:
+                if uuid in handins:
                     handins[uuid]['students'].append(user)
-                except KeyError:
+                else:
                     handins[uuid] = result['handin_data']
 
-        # --- Phase 3: Map handins to download futures (reusing the same executor) ---
+        # --- Phase 3: Download handins in parallel ---
         print('Downloading submissions')
-        future_to_handin = {executor.submit(process_handin, item, path_destination, template): item
-                            for item in handins.items()}
 
-        try:
-            for future in concurrent.futures.as_completed(future_to_handin):
-                future.result()  # Check for exceptions during download
-        except Exception as e:
-            # Cancel all pending futures on first error
-            print("\nError detected, cancelling remaining downloads...")
-            for fut in future_to_handin.keys():
-                fut.cancel()
-            raise
+        # process_handin doesn't return anything, so we just consume the iterator
+        list(executor.map(
+            lambda item: process_handin(item, path_destination, template),
+            handins.items()
+        ))
+    except Exception as e:
+        # Determine error type and show appropriate message
+        print("\nError occurred during processing of submissions:")
+
+        print("\nCancelling pending tasks and waiting for running tasks to complete...")
+        # Signal all workers to stop (interrupts retry delays)
+        cancel_event.set()
+        executor.shutdown(wait=True, cancel_futures=True)
+        print("Shutdown complete.")
+
+        # Check if it's a rate limit error by walking the exception chain
+        is_rate_limit = "429" in str(e) or isinstance(e, RateLimitExceeded)
+        if not is_rate_limit:
+            current = e.__cause__
+            while current and not is_rate_limit:
+                is_rate_limit = "429" in str(current) or isinstance(current, RateLimitExceeded)
+                current = current.__cause__
+
+        if is_rate_limit:
+            print(f"  Canvas API rate limit exceeded.")
+            print(f"  Try again in a moment, or use --buffersize with a lower value (currently {buffersize}).")
+        else:
+            print(f"  {e}")
+            if e.__cause__:
+                print(f"  Caused by: {e.__cause__}")
+
+        raise
+    else:
+        # Normal shutdown: wait for all tasks to complete
+        executor.shutdown(wait=True)
 
     # --- Final Sequential File Writes ---
     with open(os.path.join(path_destination, 'empty.yml'), 'w') as f:
