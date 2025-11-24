@@ -13,6 +13,7 @@ from .util import *
 
 NAME_SHEET = 'grade.yml'
 
+
 def grade(submission, grade, path_feedback, dry_run=True):
     # bail if dry
     if dry_run:
@@ -28,11 +29,25 @@ def grade(submission, grade, path_feedback, dry_run=True):
 
 
 def add_subparser(subparsers: argparse._SubParsersAction):
-    parser : argparse.ArgumentParser = subparsers.add_parser(name='upload-single', help='upload feedback for a single submission')
+    parser: argparse.ArgumentParser = subparsers.add_parser(
+        name='upload-single', help='upload feedback for a single submission'
+    )
     parser.add_argument('points', type=str, metavar='INT', help='number of points given')
-    parser.add_argument('path_meta_yml', type=str, metavar='META_PATH', help='YAML file containg meta data related to the submission')
-    parser.add_argument('path_grade_yml', type=str, metavar='GRADE_PATH', help='YAML file containing the grade')
-    parser.add_argument('path_feedback', type=str, metavar='FEEDBACK_PATH', help='the path to the text file containing feedback')
+    parser.add_argument(
+        'path_meta_yml',
+        type=str,
+        metavar='META_PATH',
+        help='YAML file containg meta data related to the submission',
+    )
+    parser.add_argument(
+        'path_grade_yml', type=str, metavar='GRADE_PATH', help='YAML file containing the grade'
+    )
+    parser.add_argument(
+        'path_feedback',
+        type=str,
+        metavar='FEEDBACK_PATH',
+        help='the path to the text file containing feedback',
+    )
     parser.add_argument('--live', action='store_true', help='upload feedback for submission')
     parser.set_defaults(main=main)
 
@@ -50,9 +65,9 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     # get grade.yml
     with open(path_grade_yml, 'r') as f:
-        sheet =  parse_sheet(f.read())
+        sheet = parse_sheet(f.read())
 
-    if not(isfile(path_feedback) and access(path_feedback, R_OK)):
+    if not (isfile(path_feedback) and access(path_feedback, R_OK)):
         print(f"File {path_feedback} doesn't exist or isn't readable")
         exit(1)
 
@@ -71,9 +86,4 @@ def main(api_url, api_key, args: argparse.Namespace):
         submission = assignment.get_submission(student.id)
         total = points
 
-        grade(
-            submission,
-            total,
-            path_feedback,
-            dry_run = not live
-        )
+        grade(submission, total, path_feedback, dry_run=not live)

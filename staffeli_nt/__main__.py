@@ -15,17 +15,14 @@ from staffeli_nt import upload_single
 
 def main():
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(title="subcommands", dest="subcommand")
+    subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
     scan.add_subparser(subparsers)
     download.add_subparser(subparsers)
     info.add_subparser(subparsers)
     upload.add_subparser(subparsers)
     upload_single.add_subparser(subparsers)
 
-    path_token = os.path.join(
-        str(Path.home()),
-        '.canvas.token'
-    )
+    path_token = os.path.join(str(Path.home()), '.canvas.token')
 
     if not os.path.exists(path_token):
         print(f'Error: Missing Canvas token at {path_token}.')
