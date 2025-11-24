@@ -42,28 +42,22 @@
             sourcePreference = "wheel";
           };
 
-          # Create Python set with overlay applied
-          pythonSet = (pkgs.python314.override {
-            self = pythonSet;
-            packageOverrides = lib.composeManyExtensions [
+          # Create base Python set
+          baseSet = pyproject-nix.build.packages {
+            inherit pkgs;
+            python = pkgs.python314;
+          };
+
+          # Apply overlays to create final Python set
+          pythonSet = baseSet.overrideScope (
+            lib.composeManyExtensions [
               pyproject-build-systems.overlays.default
               overlay
-            ];
-          });
-
-          # Create editable overlay for development
-          editableOverlay = workspace.mkEditablePyprojectOverlay {
-            root = "$REPO_ROOT";
-          };
-
-          # Apply editable overlay
-          editablePythonSet = pythonSet.override {
-            self = editablePythonSet;
-            packageOverrides = editableOverlay;
-          };
+            ]
+          );
 
           # Create virtual environment with all dependencies
-          venv = editablePythonSet.mkVirtualEnv "staffeli-nt-dev-env" workspace.deps.all;
+          venv = pythonSet.mkVirtualEnv "staffeli-nt-dev-env" workspace.deps.all;
 
         in
         {
@@ -73,16 +67,7 @@
               pkgs.uv
             ];
 
-            env = {
-              UV_NO_SYNC = "1";
-              UV_PYTHON = editablePythonSet.python.interpreter;
-              UV_PYTHON_DOWNLOADS = "never";
-            };
-
             shellHook = ''
-              unset PYTHONPATH
-              export REPO_ROOT=$(git rev-parse --show-toplevel)
-
               echo "Staffeli NT development environment"
               echo "Python: $(python --version)"
               echo ""
