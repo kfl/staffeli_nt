@@ -1,3 +1,8 @@
+# NOTE: This shell.nix is outdated (uses Python 3.13 and old dependencies).
+# It will probably be replaced with flake.nix using uv2nix for automatic sync
+# with pyproject.toml and uv.lock. For now, please use 'uv sync' instead for
+# the correct Python 3.14 environment. See: https://github.com/kfl/staffeli_nt/issues/72
+
 { pkgs ? import <nixpkgs> {} }:
   pkgs.mkShell {
     nativeBuildInputs = [

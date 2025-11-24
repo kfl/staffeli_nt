@@ -1,9 +1,9 @@
 [project]
 name = "staffeli-nt"
-version = "0.2.0"
+version = "0.3.0"
 description = "Staffeli NT Technology"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [
     { name = "Ken Friis Larsen" },
@@ -14,7 +14,7 @@ authors = [
 ]
 
 dependencies = [
-    "canvasapi>=3.3.0",
+    "canvasapi>=3.4.0",
     "ruamel-yaml>=0.16.10",
 ]
 
@@ -23,6 +23,7 @@ dev = [
     "mypy>=1.0",
     "types-requests",
     "types-PyYAML",
+    "ruff>=0.8.0",
 ]
 
 [project.scripts]
@@ -44,3 +45,15 @@ warn_unused_configs = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # pycodestyle errors, pyflakes, isort
+ignore = []
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"

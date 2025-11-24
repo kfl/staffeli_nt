@@ -15,7 +15,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
+
+      - name: Check lockfile is up to date
+        run: uv lock --check
 
       - name: Install dependencies with dev extras
         run: uv sync --extra dev

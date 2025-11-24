@@ -1,15 +1,24 @@
 import collections
+from typing import Any, List, Optional, Tuple
 
-from typing import Optional, List, Tuple, Any
-from canvasapi import Canvas  # type: ignore[import-untyped]
 from ruamel.yaml import YAML
 
-yaml = YAML()
-yaml.indent(mapping=4, sequence=2, offset=2)
-yaml.Representer.add_representer(
-    collections.OrderedDict,
-    yaml.Representer.represent_dict
-)
+
+def create_yaml():
+    """Create a new YAML instance with standard configuration.
+
+    The ruamel.yaml library is not thread-safe, so each thread should
+    create its own YAML instance when running in parallel.
+    """
+    y = YAML()
+    y.indent(mapping=4, sequence=2, offset=2)
+    y.Representer.add_representer(collections.OrderedDict, y.Representer.represent_dict)
+    return y
+
+
+# Global YAML instance for sequential use
+yaml = create_yaml()
+
 
 class Task:
     name: str
@@ -27,6 +36,7 @@ class Task:
         if self.default and self.points:
             assert 0 <= self.default <= self.points
 
+
 class Assignment:
     name: str
     tasks: List[Task]
@@ -34,8 +44,14 @@ class Assignment:
     passing_points: Optional[int]
     show_points: bool
 
-    def __init__(self, name: str, passing_points: Optional[int], tasks: List[Task],
-                 show_points: Optional[bool], onlineTA: Optional[str]):
+    def __init__(
+        self,
+        name: str,
+        passing_points: Optional[int],
+        tasks: List[Task],
+        show_points: Optional[bool],
+        onlineTA: Optional[str],
+    ):
         self.name = name
         self.tasks = tasks
         self.passing_points = int(passing_points) if passing_points is not None else None
@@ -71,16 +87,9 @@ class Assignment:
                 grade = solution.get_grade(task)
 
                 if solution.bonus:
-                    form += '%s / %s points (+%s bonus)' % (
-                        grade,
-                        solution.points,
-                        solution.bonus
-                    )
+                    form += '%s / %s points (+%s bonus)' % (grade, solution.points, solution.bonus)
                 else:
-                    form += '%s / %s points' % (
-                        grade,
-                        solution.points
-                    )
+                    form += '%s / %s points' % (grade, solution.points)
 
             if solution.feedback is not None:
                 feedback = solution.feedback.strip()
@@ -96,6 +105,7 @@ class Assignment:
 
         return body.strip()
 
+
 class MetaCourse:
     id: int
     name: str
@@ -105,15 +115,11 @@ class MetaCourse:
         self.name = name
 
     def serialize(self):
-        return {
-            'course': collections.OrderedDict([
-                ('id', self.id),
-                ('name', self.name)
-            ])
-        }
+        return {'course': collections.OrderedDict([('id', self.id), ('name', self.name)])}
 
     def __repr__(self):
         return str(self.__dict__)
+
 
 class MetaAssignment:
     id: int
@@ -127,10 +133,10 @@ class MetaAssignment:
 
     def serialize(self):
         return {
-            'assignment': collections.OrderedDict([
-                ('id', self.id),
-                ('name', self.name)
-            ] + [ ('section', s) for s in [self.section] if s is not None ])
+            'assignment': collections.OrderedDict(
+                [('id', self.id), ('name', self.name)]
+                + [('section', s) for s in [self.section] if s is not None]
+            )
         }
 
     def __repr__(self):
@@ -162,12 +168,7 @@ class Student:
         self.login = login
 
     def serialize(self):
-        return {
-            self.id : collections.OrderedDict([
-                ('name', self.name),
-                ('login', self.login)
-            ])
-        }
+        return {self.id: collections.OrderedDict([('name', self.name), ('login', self.login)])}
 
     def __hash__(self):
         return self.id
@@ -177,11 +178,12 @@ class Student:
             return False
         return self.id == other.id
 
+
 class Solution:
     grade: float
     points: float
 
-    def __init__(self, name: str, grade, points, feedback: str='', bonus=None):
+    def __init__(self, name: str, grade, points, feedback: str = '', bonus=None):
         self.name = name
         self.grade = grade
         self.bonus = bonus
@@ -192,12 +194,10 @@ class Solution:
             assert grade <= points, 'too many points given %s/%s' % (grade, points)
 
     def serialize(self):
-
-        inner : list[tuple[str, Any]] = [ ('feedback', self.feedback) ]
+        inner: list[tuple[str, Any]] = [('feedback', self.feedback)]
 
         if self.points is not None:
-            inner.extend((('grade', self.grade),
-                          ('points', self.points)))
+            inner.extend((('grade', self.grade), ('points', self.points)))
 
         if self.bonus is not None:
             inner.append(('bonus', self.bonus))
@@ -223,8 +223,9 @@ class Solution:
     def is_graded(self, task: Task):
         return self.get_grade(task) is not None
 
+
 class GradingSheet:
-    name : str
+    name: str
     students: List[Student]
 
     def __init__(self, name: str, solutions: List[Solution], students: List[Student]):
@@ -233,11 +234,13 @@ class GradingSheet:
         self.solutions = solutions
 
     def serialize(self):
-        return collections.OrderedDict([
-            ('name', self.name),
-            ('students', [s.serialize() for s in self.students]),
-            ('solutions', [s.serialize() for s in self.solutions])
-        ])
+        return collections.OrderedDict(
+            [
+                ('name', self.name),
+                ('students', [s.serialize() for s in self.students]),
+                ('solutions', [s.serialize() for s in self.solutions]),
+            ]
+        )
 
     def total(self):
         total: float = 0.0
@@ -265,6 +268,7 @@ class GradingSheet:
     def is_graded(self, ass: Assignment):
         return self.get_grade(ass) is not None
 
+
 def parse_sheet(data):
     def flat(comseq):
         return sum([list(s.items()) for s in comseq], [])
@@ -276,64 +280,56 @@ def parse_sheet(data):
     return GradingSheet(
         struct['name'],
         students=[
-            Student(
-                id = k,
-                name = v['name'],
-                login = v['login']
-            )
-            for (k, v) in flat(struct['students'])
+            Student(id=k, name=v['name'], login=v['login']) for (k, v) in flat(struct['students'])
         ],
         solutions=[
             Solution(
-                name = k,
-                bonus = v['bonus'] if 'bonus' in v else None,
-                points = v['points'] if 'points' in v else None,
-                grade = v['grade'] if 'points' in v else None,
-                feedback = v['feedback']  if 'feedback' in v else ""
+                name=k,
+                bonus=v['bonus'] if 'bonus' in v else None,
+                points=v['points'] if 'points' in v else None,
+                grade=v['grade'] if 'points' in v else None,
+                feedback=v['feedback'] if 'feedback' in v else '',
             )
             for (k, v) in flat(struct['solutions'])
-        ]
+        ],
     )
 
+
 def create_student(student):
-    return Student(
-        id=student.id,
-        name=student.name,
-        login=student.login_id
-    )
+    return Student(id=student.id, name=student.name, login=student.login_id)
+
 
 def create_solution(task):
     return Solution(
-        name = task.name,
-        bonus = None,
-        grade = None,        # unassigned
-        points = task.points, # maximum points
-        feedback = task.rubric
+        name=task.name,
+        bonus=None,
+        grade=None,  # unassigned
+        points=task.points,  # maximum points
+        feedback=task.rubric,
     )
 
+
 def create_sheet(template, students):
-    solutions = []
     return GradingSheet(
         name=template.name,
         solutions=[create_solution(t) for t in template.tasks],
-        students=[create_student(s) for s in students]
+        students=[create_student(s) for s in students],
     )
+
 
 def parse_meta(data):
     struct = yaml.load(data)
 
-    course = MetaCourse(
-        id=struct['course']['id'],
-        name=struct['course']['name']
-    )
+    course = MetaCourse(id=struct['course']['id'], name=struct['course']['name'])
 
     assignment = MetaAssignment(
         id=struct['assignment']['id'],
         name=struct['assignment']['name'],
-        section=struct['assignment'].get('section')
+        section=struct['assignment'].get('section'),
     )
 
     return Meta(course, assignment)
+
 
 def parse_template(data):
     struct = yaml.load(data)
@@ -344,26 +340,27 @@ def parse_template(data):
             Task(
                 name=name,
                 title=t[name]['title'],
-                points=t[name]['points'] if 'points' in t[name] else None, # max points
-                default=t[name]['default'] if 'default' in t[name] else None, # default points
-                rubric=t[name]['rubric'] if 'rubric' in t[name] else "" # default feedback
+                points=t[name]['points'] if 'points' in t[name] else None,  # max points
+                default=t[name]['default'] if 'default' in t[name] else None,  # default points
+                rubric=t[name]['rubric'] if 'rubric' in t[name] else '',  # default feedback
             )
         )
         # TODO warn about spurious fields
 
     return Assignment(
-        name = struct['name'],
-        passing_points = struct.get('passing-points'),
-        tasks = tasks,
-        show_points = struct.get('show-points'),
-        onlineTA = struct.get('onlineTA')
+        name=struct['name'],
+        passing_points=struct.get('passing-points'),
+        tasks=tasks,
+        show_points=struct.get('show-points'),
+        onlineTA=struct.get('onlineTA'),
     )
+
 
 def parse_students_and_tas(data) -> Tuple[List[str], List[List[str]]]:
     struct = yaml.load(data)
     tas = []
-    stud : List[List[str]] = []
+    stud: List[List[str]] = []
     for t, students in struct.items():
         tas.append(t)
-        stud.append(list(filter(None,students)))
+        stud.append(list(filter(None, students)))
     return tas, stud
