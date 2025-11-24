@@ -1,15 +1,10 @@
-import os
-import sys
 
 import argparse
-from os import access, R_OK
+from os import R_OK, access
 from os.path import isfile
 
-
-from pathlib import Path
-
-from .vas import *
 from .util import *
+from .vas import *
 
 NAME_SHEET = 'grade.yml'
 

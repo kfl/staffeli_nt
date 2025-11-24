@@ -6,11 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from staffeli_nt import scan
-from staffeli_nt import download
-from staffeli_nt import info
-from staffeli_nt import upload
-from staffeli_nt import upload_single
+from staffeli_nt import download, info, scan, upload, upload_single
 
 
 def main():

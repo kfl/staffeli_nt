@@ -1,10 +1,11 @@
+import argparse
 import os
 import tempfile
-import argparse
 
 from ruamel.yaml import YAMLError
-from .vas import *
+
 from .util import *
+from .vas import *
 
 NAME_SHEET = 'grade.yml'
 

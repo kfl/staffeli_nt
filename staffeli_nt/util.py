@@ -1,8 +1,9 @@
 import os
 import time
-import requests
-from zipfile import ZipFile
 from pathlib import Path
+from zipfile import ZipFile
+
+import requests
 
 
 def download(url, retries=3, delay=1.0):

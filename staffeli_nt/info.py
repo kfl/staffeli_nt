@@ -1,11 +1,12 @@
-import sys
 import argparse
 import hashlib
-import re
 import math
-from .vas import *
+import re
+import sys
+from typing import Any, Dict
+
 from .util import *
-from typing import Dict, Any
+from .vas import *
 
 
 def digest(data):
@@ -129,7 +130,7 @@ def distribute(bags, verbose=True, debug=False):
     for handins, key in nonfull:
         if (avg - handins - 1) > len(full):
             print(
-                f'[!!!] INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.'
+                '[!!!] INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.'
             )
             break
         if debug:
