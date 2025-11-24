@@ -44,7 +44,7 @@
 
           # Create base Python set
           baseSet = pyproject-nix.build.packages {
-            inherit pkgs;
+            inherit (pkgs) pkgs stdenv;
             python = pkgs.python314;
           };
 
