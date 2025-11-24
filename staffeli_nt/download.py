@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 from zipfile import BadZipFile
 
+from canvasapi import Canvas  # type: ignore[import-untyped]
 from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
 
 from .util import download, run_onlineTA
 from .vas import (
-    Canvas,
     Meta,
     MetaAssignment,
     MetaCourse,

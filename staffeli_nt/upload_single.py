@@ -3,6 +3,8 @@ import argparse
 from os import R_OK, access
 from os.path import isfile
 
+from canvasapi import Canvas  # type: ignore[import-untyped]
+
 from .util import *
 from .vas import *
 

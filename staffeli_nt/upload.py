@@ -2,6 +2,7 @@ import argparse
 import os
 import tempfile
 
+from canvasapi import Canvas  # type: ignore[import-untyped]
 from ruamel.yaml import YAMLError
 
 from .util import *

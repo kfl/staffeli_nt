@@ -5,6 +5,8 @@ import re
 import sys
 from typing import Any, Dict
 
+from canvasapi import Canvas  # type: ignore[import-untyped]
+
 from .util import *
 from .vas import *
 

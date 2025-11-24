@@ -1,7 +1,6 @@
 import collections
+from typing import Any, List, Optional, Tuple
 
-from typing import Optional, List, Tuple, Any
-from canvasapi import Canvas  # type: ignore[import-untyped]
 from ruamel.yaml import YAML
 
 
