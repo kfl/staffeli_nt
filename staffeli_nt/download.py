@@ -1,20 +1,32 @@
-import os
-import sys
-import shutil
-import zipfile
-import hashlib
-import re
-import random
-import threading
-from zipfile import BadZipFile
-from pathlib import Path
-from typing import Dict, Any, Tuple
 import argparse
 import concurrent.futures
+import hashlib
+import os
+import random
+import re
+import shutil
+import sys
+import threading
+import zipfile
+from pathlib import Path
+from typing import Any, Dict, Tuple
+from zipfile import BadZipFile
 
-from canvasapi.exceptions import RateLimitExceeded, CanvasException  # type: ignore[import-untyped]
-from .vas import *
-from .util import *
+from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
+
+from .util import download, run_onlineTA
+from .vas import (
+    Canvas,
+    Meta,
+    MetaAssignment,
+    MetaCourse,
+    create_sheet,
+    create_student,
+    create_yaml,
+    parse_students_and_tas,
+    parse_template,
+    yaml,
+)
 
 # Canvas API rate limit settings
 MAX_API_WORKERS = 100
@@ -22,11 +34,14 @@ RATE_LIMIT_RETRY_DELAY = 2.0  # 2s wait when rate limited
 MAX_RETRIES = 3
 SUBMISSION_BUFFER_SIZE = 30  # Buffer size for pagination consumption
 
+
 def digest(data):
     return hashlib.sha256(data).digest()
 
+
 def kuid(login_id):
     return login_id.split('@', maxsplit=1)[0]
+
 
 def smart_key(name):
     parts = re.findall('[^0-9]+|[0-9]+', name)
@@ -38,15 +53,20 @@ def smart_key(name):
             key.append(part)
     return key
 
+
 def sort_by_name(named):
     return sorted(list(named), key=lambda x: smart_key(x.name))
 
+
 def grab_submission_comments(submission) -> str:
     if not submission.submission_comments:
-        return ""
-    comments = [f"{c['created_at']} - {c['author_name']}: {c['comment']}"
-                for c in submission.submission_comments]
-    return "\n".join(sorted(comments))
+        return ''
+    comments = [
+        f'{c["created_at"]} - {c["author_name"]}: {c["comment"]}'
+        for c in submission.submission_comments
+    ]
+    return '\n'.join(sorted(comments))
+
 
 def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, stud):
     """
@@ -62,13 +82,12 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
         for n, ta_name in enumerate(tas):
             print('%2d :' % n, ta_name)
         index = int(input('Select TA: '))
-        ta = tas[index]
         students = []
         for i in stud[index]:
             # Need full user lookup for search_term matching
-            students += course.get_users(search_term=i,
-                                         enrollment_type=['student'],
-                                         enrollment_state='active')
+            students += course.get_users(
+                search_term=i, enrollment_type=['student'], enrollment_state='active'
+            )
         student_ids = [s.id for s in students]
 
     elif select_section:
@@ -77,12 +96,12 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
         for n, sec in enumerate(sections):
             print('%2d :' % n, sec.name)
         index = int(input('Select section: '))
-        section = course.get_section(sections[index].id,
-                                     include=['students', 'enrollments'])
-        student_ids = [s['id']
-                       for s in section.students
-                       if all(e['enrollment_state'] == 'active'
-                              for e in s['enrollments'])]
+        section = course.get_section(sections[index].id, include=['students', 'enrollments'])
+        student_ids = [
+            s['id']
+            for s in section.students
+            if all(e['enrollment_state'] == 'active' for e in s['enrollments'])
+        ]
     else:
         # Get all enrolled students using GraphQL (faster - only fetches IDs)
         # Note: We query enrollments rather than users because Canvas GraphQL doesn't
@@ -118,7 +137,7 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
             has_next_page = True
 
             while has_next_page:
-                variables = {"courseId": course_id, "cursor": cursor}
+                variables = {'courseId': course_id, 'cursor': cursor}
                 result = canvas.graphql(query, variables=variables)
                 enrollments = result['data']['course']['enrollmentsConnection']
 
@@ -144,7 +163,7 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
     """
     if os.path.exists(path_destination):
         print(f"Error: Destination directory '{path_destination}' already exists.")
-        print("Please choose a different directory name or remove the existing directory.")
+        print('Please choose a different directory name or remove the existing directory.')
         sys.exit(1)
 
     try:
@@ -155,7 +174,7 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
         sys.exit(1)
     except Exception as e:
         print(f"Error: Failed to parse template file '{path_template}'")
-        print(f"Reason: {e}")
+        print(f'Reason: {e}')
         sys.exit(1)
 
     tas = None
@@ -169,14 +188,16 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
             sys.exit(1)
         except Exception as e:
             print(f"Error: Failed to parse TA list file '{select_ta}'")
-            print(f"Reason: {e}")
-            print("Do all TAs have at least one student attached?")
+            print(f'Reason: {e}')
+            print('Do all TAs have at least one student attached?')
             sys.exit(1)
 
     return (template, tas, stud)
 
 
-def process_submission(student_id, assignment, course, resubmissions_only, cancel_event, retry_count=0):
+def process_submission(
+    student_id, assignment, course, resubmissions_only, cancel_event, retry_count=0
+):
     """
     Fetches and processes a single submission for a student.
     Handles its own rate limiting with retries and random jitter.
@@ -187,17 +208,27 @@ def process_submission(student_id, assignment, course, resubmissions_only, cance
         user = course.get_user(student_id)
     except (RateLimitExceeded, CanvasException) as e:
         # Check if it's a rate limit error (status 429)
-        if "429" in str(e) or isinstance(e, RateLimitExceeded):
+        if '429' in str(e) or isinstance(e, RateLimitExceeded):
             if retry_count < MAX_RETRIES:
                 # Add random jitter (0-500ms) to avoid thundering herd problem
                 jitter = random.uniform(0, 0.5)
                 delay = RATE_LIMIT_RETRY_DELAY + jitter
-                print(f'Rate limit exceeded, retrying in {delay:.2f}s... (attempt {retry_count + 1}/{MAX_RETRIES})')
+                print(
+                    f'Rate limit exceeded, retrying in {delay:.2f}s... '
+                    f'(attempt {retry_count + 1}/{MAX_RETRIES})'
+                )
                 # Use interruptible wait instead of sleep
                 if cancel_event.wait(delay):
                     # Event was set, we're shutting down
-                    raise InterruptedError("Operation cancelled during retry")
-                return process_submission(student_id, assignment, course, resubmissions_only, cancel_event, retry_count + 1)
+                    raise InterruptedError('Operation cancelled during retry')
+                return process_submission(
+                    student_id,
+                    assignment,
+                    course,
+                    resubmissions_only,
+                    cancel_event,
+                    retry_count + 1,
+                )
             print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
         raise
 
@@ -219,7 +250,7 @@ def process_submission(student_id, assignment, course, resubmissions_only, cance
                     handin_data = {
                         'files': files,
                         'students': [user],
-                        'comments': grab_submission_comments(submission)
+                        'comments': grab_submission_comments(submission),
                     }
                     result.update({'is_empty': False, 'uuid': uuid, 'handin_data': handin_data})
         # else, grab everything
@@ -231,11 +262,12 @@ def process_submission(student_id, assignment, course, resubmissions_only, cance
             handin_data = {
                 'files': files,
                 'students': [user],
-                'comments': grab_submission_comments(submission)
+                'comments': grab_submission_comments(submission),
             }
             result.update({'is_empty': False, 'uuid': uuid, 'handin_data': handin_data})
 
     return result
+
 
 def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     """
@@ -255,17 +287,17 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
     os.mkdir(base)
 
     # Count number of zip-files in handin
-    num_zip_files = sum(1 for x in handin['files']
-                        if ".zip" in x.filename.lower() or x.mime_class == 'zip')
+    num_zip_files = sum(
+        1 for x in handin['files'] if '.zip' in x.filename.lower() or x.mime_class == 'zip'
+    )
     if num_zip_files > 1:
-        print(f"Submission contains {num_zip_files} files that look like zip-files.")
-        print("Will attempt to unzip into separate directories.")
+        print(f'Submission contains {num_zip_files} files that look like zip-files.')
+        print('Will attempt to unzip into separate directories.')
         if template.onlineTA is not None:
-            print("Will not submit to OnlineTA, due to multiple zip-files")
+            print('Will not submit to OnlineTA, due to multiple zip-files')
 
     # download submission
     for attachment in handin['files']:
-
         # download attachment
         filename = attachment.filename
         path = os.path.join(base, filename)
@@ -275,11 +307,11 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
                 bf.write(data)
         except Exception as e:
             error_msg = (
-                f"\nFailed to download file: {filename}\n"
-                f"  From: {student_names}\n"
-                f"  Submission directory: {base}\n"
-                f"  URL: {attachment.url}\n"
-                f"  Error: {e}"
+                f'\nFailed to download file: {filename}\n'
+                f'  From: {student_names}\n'
+                f'  Submission directory: {base}\n'
+                f'  URL: {attachment.url}\n'
+                f'  Error: {e}'
             )
             print(error_msg)
             raise RuntimeError(error_msg) from e
@@ -288,8 +320,8 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
         if attachment.mime_class == 'zip':
             unpacked = os.path.join(base, 'unpacked')
             if num_zip_files > 1 or os.path.exists(unpacked):
-                unpacked = os.path.join(base, f"{filename}_unpacked")
-                print(f"Attempting to unzip {filename} into {unpacked}")
+                unpacked = os.path.join(base, f'{filename}_unpacked')
+                print(f'Attempting to unzip {filename} into {unpacked}')
             os.mkdir(unpacked)
             try:
                 with zipfile.ZipFile(path, 'r') as zip_ref:
@@ -298,17 +330,14 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
                         if template.onlineTA is not None and num_zip_files == 1:
                             run_onlineTA(base, unpacked, template.onlineTA)
                     except NotADirectoryError:
-                        print(f"Attempted to unzip into a non-directory: {name}")
+                        print(f'Attempted to unzip into a non-directory: {name}')
             except BadZipFile:
-                print(f"Attached archive not a zip-file: {name}")
+                print(f'Attached archive not a zip-file: {name}')
             except Exception as e:
-                print(f"Error when unzipping file {filename}.\nError message: {e}")
+                print(f'Error when unzipping file {filename}.\nError message: {e}')
 
     # remove junk from submission directory
-    junk = ['.git',
-            '__MACOSX',
-            '.stack-work',
-            '.DS_Store']
+    junk = ['.git', '__MACOSX', '.stack-work', '.DS_Store']
     base_path = Path(base)
     for pattern in junk:
         for junk_path in base_path.rglob(pattern):
@@ -319,8 +348,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
 
     # create grading sheet from template
     grade = os.path.join(base, 'grade.yml')
-    sheet = create_sheet(template,
-                         sorted(handin['students'], key=lambda u: u.login_id))
+    sheet = create_sheet(template, sorted(handin['students'], key=lambda u: u.login_id))
     with open(grade, 'w') as f:
         local_yaml.dump(sheet.serialize(), f)
 
@@ -337,15 +365,35 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
 
 
 def add_subparser(subparsers: argparse._SubParsersAction):
-    parser : argparse.ArgumentParser = subparsers.add_parser(name='download', help='fetch submissions')
+    parser: argparse.ArgumentParser = subparsers.add_parser(
+        name='download', help='fetch submissions'
+    )
     parser.add_argument('course_id', type=str, metavar='INT', help='the course id')
-    parser.add_argument('path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template')
-    parser.add_argument('path_destination', type=str, metavar='SUBMISSIONS_PATH', help='destination to submissions folder')
-    parser.add_argument('--select-section', action='store_true', help='whether section selection is used')
-    parser.add_argument('--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions')
-    parser.add_argument('--resub', action='store_true', help='whether only resubmissions should be fetched')
-    parser.add_argument('--buffersize', type=int, default=SUBMISSION_BUFFER_SIZE, metavar='N',
-                        help=f'buffer size for pagination consumption (default: {SUBMISSION_BUFFER_SIZE})')
+    parser.add_argument(
+        'path_template', type=str, metavar='TEMPLATE_PATH', help='path to the YAML template'
+    )
+    parser.add_argument(
+        'path_destination',
+        type=str,
+        metavar='SUBMISSIONS_PATH',
+        help='destination to submissions folder',
+    )
+    parser.add_argument(
+        '--select-section', action='store_true', help='whether section selection is used'
+    )
+    parser.add_argument(
+        '--select-ta', type=str, metavar='PATH', help='path to a YAML file with TA distributions'
+    )
+    parser.add_argument(
+        '--resub', action='store_true', help='whether only resubmissions should be fetched'
+    )
+    parser.add_argument(
+        '--buffersize',
+        type=int,
+        default=SUBMISSION_BUFFER_SIZE,
+        metavar='N',
+        help=f'buffer size for pagination consumption (default: {SUBMISSION_BUFFER_SIZE})',
+    )
     parser.set_defaults(main=main)
 
 
@@ -372,9 +420,9 @@ def main(api_url, api_key, args: argparse.Namespace):
     assignment = assignments[index]
 
     # Get student IDs based on selection criteria (TA/section/all)
-    student_ids, section = get_student_ids(canvas, course, course_id,
-                                           select_ta, select_section,
-                                           tas, stud)
+    student_ids, section = get_student_ids(
+        canvas, course, course_id, select_ta, select_section, tas, stud
+    )
 
     os.mkdir(path_destination)
 
@@ -391,11 +439,15 @@ def main(api_url, api_key, args: argparse.Namespace):
     try:
         # --- Phase 1: Fetch and process submissions in parallel (one per student) ---
         print(f'Processing {len(student_ids)} submissions in parallel...')
-        processed_results = list(executor.map(
-            lambda sid: process_submission(sid, assignment, course, resubmissions_only, cancel_event),
-            student_ids,
-            buffersize=buffersize
-        ))
+        processed_results = list(
+            executor.map(
+                lambda sid: process_submission(
+                    sid, assignment, course, resubmissions_only, cancel_event
+                ),
+                student_ids,
+                buffersize=buffersize,
+            )
+        )
 
         # --- Phase 2: Reduce results to build handins dictionary ---
         for result in processed_results:
@@ -416,35 +468,39 @@ def main(api_url, api_key, args: argparse.Namespace):
         print('Downloading submissions')
 
         # process_handin doesn't return anything, so we just consume the iterator
-        list(executor.map(
-            lambda item: process_handin(item, path_destination, template),
-            handins.items()
-        ))
+        list(
+            executor.map(
+                lambda item: process_handin(item, path_destination, template), handins.items()
+            )
+        )
     except Exception as e:
         # Determine error type and show appropriate message
-        print("\nError occurred during processing of submissions:")
+        print('\nError occurred during processing of submissions:')
 
-        print("\nCancelling pending tasks and waiting for running tasks to complete...")
+        print('\nCancelling pending tasks and waiting for running tasks to complete...')
         # Signal all workers to stop (interrupts retry delays)
         cancel_event.set()
         executor.shutdown(wait=True, cancel_futures=True)
-        print("Shutdown complete.")
+        print('Shutdown complete.')
 
         # Check if it's a rate limit error by walking the exception chain
-        is_rate_limit = "429" in str(e) or isinstance(e, RateLimitExceeded)
+        is_rate_limit = '429' in str(e) or isinstance(e, RateLimitExceeded)
         if not is_rate_limit:
             current = e.__cause__
             while current and not is_rate_limit:
-                is_rate_limit = "429" in str(current) or isinstance(current, RateLimitExceeded)
+                is_rate_limit = '429' in str(current) or isinstance(current, RateLimitExceeded)
                 current = current.__cause__
 
         if is_rate_limit:
-            print(f"  Canvas API rate limit exceeded.")
-            print(f"  Try again in a moment, or use --buffersize with a lower value (currently {buffersize}).")
+            print('  Canvas API rate limit exceeded.')
+            print(
+                f'  Try again in a moment, or use --buffersize with a lower value '
+                f'(currently {buffersize}).'
+            )
         else:
-            print(f"  {e}")
+            print(f'  {e}')
             if e.__cause__:
-                print(f"  Caused by: {e.__cause__}")
+                print(f'  Caused by: {e.__cause__}')
 
         raise
     else:
@@ -454,14 +510,18 @@ def main(api_url, api_key, args: argparse.Namespace):
     # --- Final Sequential File Writes ---
     with open(os.path.join(path_destination, 'empty.yml'), 'w') as f:
         yaml.dump(
-            [create_student(p).serialize()
-             for p in sorted(empty_handins, key=lambda u: u.login_id)], f
+            [
+                create_student(p).serialize()
+                for p in sorted(empty_handins, key=lambda u: u.login_id)
+            ],
+            f,
         )
 
     with open(os.path.join(path_destination, 'meta.yml'), 'w') as f:
         meta_data = Meta(
             course=MetaCourse(course.id, course.name),
-            assignment=MetaAssignment(assignment.id, assignment.name,
-                                      section=section.id if section else None),
+            assignment=MetaAssignment(
+                assignment.id, assignment.name, section=section.id if section else None
+            ),
         )
         yaml.dump(meta_data.serialize(), f)
