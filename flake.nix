@@ -43,9 +43,7 @@
           };
 
           # Create base Python set
-          baseSet = pyproject-nix.build.packages {
-            inherit (pkgs) stdenv buildPackages;
-            pkgs = pkgs;
+          baseSet = pkgs.callPackage pyproject-nix.build.packages {
             python = pkgs.python314;
           };
 
