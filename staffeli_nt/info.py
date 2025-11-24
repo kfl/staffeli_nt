@@ -216,7 +216,6 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
 
     for uuid, handin in handins.items():
         try:
-            student_names = ', '.join([u.name for u in handin['students']])
             ku_ids = '-'.join([kuid(u.login_id) for u in handin['students']])
             # If a group assignment has students from multiple sections,
             # just grab the first section and pretend they all belong to that one

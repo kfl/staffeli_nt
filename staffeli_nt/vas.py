@@ -310,7 +310,6 @@ def create_solution(task):
 
 
 def create_sheet(template, students):
-    solutions = []
     return GradingSheet(
         name=template.name,
         solutions=[create_solution(t) for t in template.tasks],
