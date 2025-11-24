@@ -309,7 +309,7 @@ If you want to contribute to `staffeli_nt` or run type checking locally:
    uv sync --extra dev
    ```
 
-   This installs the package along with development tools like mypy and type stubs.
+   This installs the package along with development tools like mypy, ruff, and type stubs.
 
 ### Running type checks
 
@@ -317,6 +317,26 @@ To run mypy type checking:
 
 ```sh
 uv run mypy -p staffeli_nt
+```
+
+### Running code formatting and linting
+
+To format code with ruff:
+
+```sh
+uv run ruff format staffeli_nt/
+```
+
+To check for linting issues:
+
+```sh
+uv run ruff check staffeli_nt/
+```
+
+To auto-fix linting issues:
+
+```sh
+uv run ruff check --fix staffeli_nt/
 ```
 
 ### Making changes
