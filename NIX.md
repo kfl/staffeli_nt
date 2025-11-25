@@ -4,14 +4,6 @@ This repository includes Nix support via `flake.nix` using
 [uv2nix](https://github.com/pyproject-nix/uv2nix) to automatically
 sync with `pyproject.toml` and `uv.lock`.
 
-## First-time Setup
-
-After cloning the repository, generate the `flake.lock`:
-
-```sh
-nix flake lock
-```
-
 ## Usage
 
 ### For flake users
@@ -33,10 +25,23 @@ Both methods will provide a development environment with:
 
 ## How it works
 
-The `flake.nix` uses uv2nix to read from `pyproject.toml` and
-`uv.lock`, ensuring the Nix environment stays in sync with the project
-dependencies automatically. When you update dependencies via `uv`,
-just run `nix flake lock` again to update the Nix environment.
+`flake.lock` is committed to the repository and automatically updated
+via GitHub Actions when Python dependencies change. Contributors don't
+need to manually run `nix flake lock` unless they're modifying the Nix
+configuration itself.
+
+### Updating Nix dependencies
+
+To update nixpkgs, uv2nix, or pyproject-nix versions:
+
+```sh
+nix flake update
+```
+
+Then test the changes and submit a pull request with the updated `flake.lock`.
+
+**Note:** Only update when there's a specific reason (bug fix, needed feature,
+security update, etc.). The PR should explain why the update is necessary.
 
 The `shell.nix` file uses
 [flake-compat](https://github.com/edolstra/flake-compat) to provide
