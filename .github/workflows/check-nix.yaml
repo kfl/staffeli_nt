@@ -2,7 +2,15 @@ name: Check Nix setup
 on:
   push:
     branches: [main]
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'shell.nix'
   pull_request:
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'shell.nix'
 
 jobs:
   nix-flake:
