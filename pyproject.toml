@@ -57,3 +57,4 @@ ignore = []
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
+
