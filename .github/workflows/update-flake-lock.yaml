@@ -13,8 +13,7 @@ on:
       - 'uv.lock'
       - 'pyproject.toml'
     branches:
-      - 'main'  # Only run on main branch
-      - 'shell-uv2nix'  # Temporary: for testing before merge
+      - 'main'
 
 permissions:
   contents: write
