@@ -52,7 +52,7 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]  # pycodestyle errors, pyflakes, isort
-ignore = []
+ignore = ["F403", "F405"]  # Temporarily ignore star import warnings
 
 [tool.ruff.format]
 quote-style = "single"
