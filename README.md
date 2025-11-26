@@ -21,6 +21,8 @@ token](https://guides.instructure.com/m/4214/l/40399-how-do-i-obtain-an-api-acce
 for Staffeli to use, and save it in your home directory in a file with
 the name `.canvas.token`.
 
+Alternatively, you can specify a custom token file location using the `--token` flag (see General Usage below).
+
 **NB!** This is your personal token so **do not** share it with others,
 else they can easily impersonate you using a tool like Staffeli.
 Unfortunately, to the best of our knowledge, Canvas has no means to
@@ -118,6 +120,50 @@ Alternatively, if you need a `requirements.txt` file:
         $ pip install pip-tools
         $ pip-compile pyproject.toml -o requirements.txt
         $ pip install -r requirements.txt
+
+
+General Usage
+-------------
+
+### Getting help
+
+To see all available commands and options:
+
+    $ staffeli --help
+    usage: staffeli [-h] [--version] [--token PATH]
+                    {scan,download,info,upload,upload-single} ...
+
+    Staffeli NT - Canvas LMS command-line tool (version 0.3.0)
+
+    options:
+      -h, --help            show this help message and exit
+      --version             show program's version number and exit
+      --token PATH          path to Canvas token file (default: ~/.canvas.token)
+
+    subcommands:
+      {scan,download,info,upload,upload-single}
+        scan                check if grading is fully done
+        download            fetch submissions
+        info                fetch infomation related to a course
+        upload              upload feedback for submissions
+        upload-single       upload feedback for a single submission
+
+    For more information, visit https://github.com/kfl/staffeli_nt
+
+To get help for a specific subcommand, use `staffeli <subcommand> --help`, for example:
+
+    $ staffeli download --help
+
+### Using a custom token file location
+
+By default, staffeli looks for your Canvas token in `~/.canvas.token`. If you need to use a different token file, you can specify it with the `--token` flag:
+
+    $ staffeli --token /path/to/my/token download 12345 template.yml ass1dir
+
+This is useful if you:
+- Have multiple Canvas accounts with different tokens
+- Want to store your token in a non-default location
+- Are testing with different credentials
 
 
 Fetch Submissions for an Assignment
