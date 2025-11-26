@@ -15,6 +15,7 @@ from zipfile import BadZipFile
 from canvasapi import Canvas  # type: ignore[import-untyped]
 from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
 
+from .console import console, print_error, print_info, print_warning
 from .util import download, run_onlineTA
 from .vas import (
     Meta,
@@ -78,9 +79,9 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
     section = None
 
     if select_ta:
-        print('\nTAs:')
+        console.print('\n[info]TAs:[/info]')
         for n, ta_name in enumerate(tas):
-            print('%2d :' % n, ta_name)
+            console.print(f'{n:2d} : {ta_name}')
         index = int(input('Select TA: '))
         students = []
         for i in stud[index]:
@@ -92,9 +93,9 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
 
     elif select_section:
         sections = sort_by_name(course.get_sections())
-        print('\nSections:')
+        console.print('\n[info]Sections:[/info]')
         for n, sec in enumerate(sections):
-            print('%2d :' % n, sec.name)
+            console.print(f'{n:2d} : {sec.name}')
         index = int(input('Select section: '))
         section = course.get_section(sections[index].id, include=['students', 'enrollments'])
         student_ids = [
@@ -162,19 +163,20 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
         tuple: (template, tas, stud) where tas and stud are None if select_ta is not used
     """
     if os.path.exists(path_destination):
-        print(f"Error: Destination directory '{path_destination}' already exists.")
-        print('Please choose a different directory name or remove the existing directory.')
+        print_error(
+            f"Destination directory '{path_destination}' already exists.\n"
+            'Please choose a different directory name or remove the existing directory.'
+        )
         sys.exit(1)
 
     try:
         with open(path_template, 'r') as f:
             template = parse_template(f.read())
     except FileNotFoundError:
-        print(f"Error: Template file '{path_template}' not found.")
+        print_error(f"Template file '{path_template}' not found.")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Failed to parse template file '{path_template}'")
-        print(f'Reason: {e}')
+        print_error(f"Failed to parse template file '{path_template}'\nReason: {e}")
         sys.exit(1)
 
     tas = None
@@ -184,12 +186,14 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
             with open(select_ta, 'r') as f:
                 (tas, stud) = parse_students_and_tas(f)
         except FileNotFoundError:
-            print(f"Error: TA list file '{select_ta}' not found.")
+            print_error(f"TA list file '{select_ta}' not found.")
             sys.exit(1)
         except Exception as e:
-            print(f"Error: Failed to parse TA list file '{select_ta}'")
-            print(f'Reason: {e}')
-            print('Do all TAs have at least one student attached?')
+            print_error(
+                f"Failed to parse TA list file '{select_ta}'\n"
+                f'Reason: {e}\n'
+                'Do all TAs have at least one student attached?'
+            )
             sys.exit(1)
 
     return (template, tas, stud)
@@ -213,7 +217,7 @@ def process_submission(
                 # Add random jitter (0-500ms) to avoid thundering herd problem
                 jitter = random.uniform(0, 0.5)
                 delay = RATE_LIMIT_RETRY_DELAY + jitter
-                print(
+                print_warning(
                     f'Rate limit exceeded, retrying in {delay:.2f}s... '
                     f'(attempt {retry_count + 1}/{MAX_RETRIES})'
                 )
@@ -229,19 +233,19 @@ def process_submission(
                     cancel_event,
                     retry_count + 1,
                 )
-            print(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
+            print_error(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
         raise
 
     result = {'user': user, 'is_empty': True}  # Assume empty by default
 
     if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
-        print(f'User {user.name} handed in something')
+        print_info(f'User {user.name} handed in something')
         # NOTE: This is a terribly hacky solution and should really be rewritten
         # collect which attachments to download
         # if only fetching resubmissions
         if resubmissions_only:
             if hasattr(submission, 'score'):
-                print(f'Score: {submission.score}')
+                print_info(f'Score: {submission.score}')
                 # If a submission has not yet been graded, submission.score will be None
                 if submission.score is None or submission.score < 1.0:
                     files = [s for s in submission.attachments]
@@ -279,7 +283,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
 
     uuid, handin = item
     student_names = ', '.join([u.name for u in handin['students']])
-    print(f'Downloading submission from: {student_names}')
+    print_info(f'Downloading submission from: {student_names}')
 
     # create submission directory
     name = '-'.join(sorted([kuid(u.login_id) for u in handin['students']]))
@@ -291,10 +295,12 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
         1 for x in handin['files'] if '.zip' in x.filename.lower() or x.mime_class == 'zip'
     )
     if num_zip_files > 1:
-        print(f'Submission contains {num_zip_files} files that look like zip-files.')
-        print('Will attempt to unzip into separate directories.')
+        print_warning(
+            f'Submission contains {num_zip_files} files that look like zip-files.\n'
+            'Will attempt to unzip into separate directories.'
+        )
         if template.onlineTA is not None:
-            print('Will not submit to OnlineTA, due to multiple zip-files')
+            print_warning('Will not submit to OnlineTA, due to multiple zip-files')
 
     # download submission
     for attachment in handin['files']:
@@ -307,13 +313,13 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
                 bf.write(data)
         except Exception as e:
             error_msg = (
-                f'\nFailed to download file: {filename}\n'
-                f'  From: {student_names}\n'
-                f'  Submission directory: {base}\n'
-                f'  URL: {attachment.url}\n'
-                f'  Error: {e}'
+                f'Failed to download file: {filename}\n'
+                f'From: {student_names}\n'
+                f'Submission directory: {base}\n'
+                f'URL: {attachment.url}\n'
+                f'Error: {e}'
             )
-            print(error_msg)
+            print_error(error_msg)
             raise RuntimeError(error_msg) from e
 
         # unzip attachments
@@ -321,7 +327,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
             unpacked = os.path.join(base, 'unpacked')
             if num_zip_files > 1 or os.path.exists(unpacked):
                 unpacked = os.path.join(base, f'{filename}_unpacked')
-                print(f'Attempting to unzip {filename} into {unpacked}')
+                print_info(f'Attempting to unzip {filename} into {unpacked}')
             os.mkdir(unpacked)
             try:
                 with zipfile.ZipFile(path, 'r') as zip_ref:
@@ -330,11 +336,11 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
                         if template.onlineTA is not None and num_zip_files == 1:
                             run_onlineTA(base, unpacked, template.onlineTA)
                     except NotADirectoryError:
-                        print(f'Attempted to unzip into a non-directory: {name}')
+                        print_error(f'Attempted to unzip into a non-directory: {name}')
             except BadZipFile:
-                print(f'Attached archive not a zip-file: {name}')
+                print_warning(f'Attached archive not a zip-file: {name}')
             except Exception as e:
-                print(f'Error when unzipping file {filename}.\nError message: {e}')
+                print_error(f'Error when unzipping file {filename}\nError message: {e}')
 
     # remove junk from submission directory
     junk = ['.git', '__MACOSX', '.stack-work', '.DS_Store']
@@ -413,9 +419,9 @@ def main(api_url, api_key, args: argparse.Namespace):
     course = canvas.get_course(course_id)
     assignments = sort_by_name(course.get_assignments())
 
-    print('\nAssignments:')
+    console.print('\n[info]Assignments:[/info]')
     for n, assignment in enumerate(assignments):
-        print(f'{n:2d} :', assignment.name)
+        console.print(f'{n:2d} : {assignment.name}')
     index = int(input('Select assignment: '))
     assignment = assignments[index]
 
@@ -438,7 +444,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_API_WORKERS)
     try:
         # --- Phase 1: Fetch and process submissions in parallel (one per student) ---
-        print(f'Processing {len(student_ids)} submissions in parallel...')
+        print_info(f'Processing {len(student_ids)} submissions in parallel...')
         processed_results = list(
             executor.map(
                 lambda sid: process_submission(
@@ -465,7 +471,7 @@ def main(api_url, api_key, args: argparse.Namespace):
                     handins[uuid] = result['handin_data']
 
         # --- Phase 3: Download handins in parallel ---
-        print('Downloading submissions')
+        print_info('Downloading submissions')
 
         # process_handin doesn't return anything, so we just consume the iterator
         list(
@@ -475,13 +481,14 @@ def main(api_url, api_key, args: argparse.Namespace):
         )
     except Exception as e:
         # Determine error type and show appropriate message
-        print('\nError occurred during processing of submissions:')
+        print_error('Error occurred during processing of submissions:')
 
-        print('\nCancelling pending tasks and waiting for running tasks to complete...')
+        console.print()  # Blank line
+        print_warning('Cancelling pending tasks and waiting for running tasks to complete...')
         # Signal all workers to stop (interrupts retry delays)
         cancel_event.set()
         executor.shutdown(wait=True, cancel_futures=True)
-        print('Shutdown complete.')
+        print_info('Shutdown complete.')
 
         # Check if it's a rate limit error by walking the exception chain
         is_rate_limit = '429' in str(e) or isinstance(e, RateLimitExceeded)
@@ -492,15 +499,16 @@ def main(api_url, api_key, args: argparse.Namespace):
                 current = current.__cause__
 
         if is_rate_limit:
-            print('  Canvas API rate limit exceeded.')
-            print(
-                f'  Try again in a moment, or use --buffersize with a lower value '
+            print_error(
+                'Canvas API rate limit exceeded.\n'
+                f'Try again in a moment, or use --buffersize with a lower value '
                 f'(currently {buffersize}).'
             )
         else:
-            print(f'  {e}')
+            error_msg = str(e)
             if e.__cause__:
-                print(f'  Caused by: {e.__cause__}')
+                error_msg += f'\nCaused by: {e.__cause__}'
+            print_error(error_msg)
 
         raise
     else:
