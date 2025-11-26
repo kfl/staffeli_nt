@@ -15,6 +15,7 @@ authors = [
 
 dependencies = [
     "canvasapi>=3.4.0",
+    "rich>=14.2.0",
     "ruamel-yaml>=0.16.10",
 ]
 
