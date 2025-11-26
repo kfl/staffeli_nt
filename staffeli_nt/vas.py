@@ -3,6 +3,8 @@ from typing import Any, List, Optional, Tuple
 
 from ruamel.yaml import YAML
 
+from .console import print_warning
+
 
 def create_yaml():
     """Create a new YAML instance with standard configuration.
@@ -65,7 +67,7 @@ class Assignment:
     def format_md(self, sheet):
         assert isinstance(sheet, GradingSheet)
         if not sheet.is_graded(self):
-            print('trying to format sheet that is not finished graded')
+            print_warning('Trying to format sheet that is not finished graded')
 
         solutions = {}
         for solution in sheet.solutions:

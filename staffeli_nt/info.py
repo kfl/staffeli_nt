@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
+from .console import console, print_debug, print_error, print_info
 from .util import *
 from .vas import *
 
@@ -81,10 +82,10 @@ def distribute(bags, verbose=True, debug=False):
     # Each bag should contain at most avg, the number of handins / number of TAs, rounded up
     avg = math.ceil(num_handins / num_bags)
     if verbose or debug:
-        print(f'[INFO] Total: {num_handins}')
-        print(f'[INFO] TAs: {num_bags}')
-        print(f'[INFO] Avg, rounded up: {avg}')
-        print(f'[INFO] Initial unassigned submissions: {len(unass_ass_stack)}')
+        print_info(f'Total: {num_handins}')
+        print_info(f'TAs: {num_bags}')
+        print_info(f'Avg, rounded up: {avg}')
+        print_info(f'Initial unassigned submissions: {len(unass_ass_stack)}')
 
     # The general algorithm:
     #    1) Sort the bags in order of descending number of handins
@@ -96,10 +97,10 @@ def distribute(bags, verbose=True, debug=False):
     #           redistribute submission from a bag with >= avg submissions
 
     if verbose or debug:
-        print('[INFO] Before redistribution:')
-        print('{0:32}handins'.format('Hold'))
+        print_info('Before redistribution:')
+        console.print(f"{'Hold':<32}handins")
         for key, handins in bags.items():
-            print('{0:32}{1}'.format(key, len(handins)))
+            console.print(f'{key:<32}{len(handins)}')
 
     # We iterate over all bags, sorted in order of descending number of handins
     baglist = sorted(
@@ -112,10 +113,11 @@ def distribute(bags, verbose=True, debug=False):
             unass_ass_stack.append(bags[key].pop())
         # will loop if bag has too few handins
         for _ in range(avg - handins - 1):
-            # We might pop from an empty stack, so we catch the exception and just redistribute further later
+            # We might pop from an empty stack, so we catch the exception
+            # and just redistribute further later
             try:
                 bags[key].append(unass_ass_stack.pop())
-            except:
+            except IndexError:
                 break
 
     # Hold that has too few submissions
@@ -127,40 +129,44 @@ def distribute(bags, verbose=True, debug=False):
         filter(lambda x: x[0] >= avg, [(len(handins), key) for (key, handins) in bags.items()])
     )
     if debug:
-        print(f'[DEBUG] Nonfull bags:\n{nonfull}\n[DEBUG] Full bags:\n{full}')
+        print_debug(f'Nonfull bags:\n{nonfull}\nFull bags:\n{full}')
 
     for handins, key in nonfull:
         if (avg - handins - 1) > len(full):
-            print(
-                '[!!!] INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.'
+            print_error(
+                'INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.'
             )
             break
         if debug:
-            print(f'{key} needs {avg - handins - 1} submissions. We have {len(full)} to give out.')
+            needed = avg - handins - 1
+            print_debug(f'{key} needs {needed} submissions. We have {len(full)} to give out.')
         for _ in range(avg - handins - 1):
             try:
                 fh, fk = full[0]
                 bags[key].append(bags[fk].pop())
                 full.remove((fh, fk))
-            except:
-                print(f'[!] INTERNAL ERROR: Ran out of submissions to redistribute to {key}.')
+            except (IndexError, KeyError):
+                print_error(f'INTERNAL ERROR: Ran out of submissions to redistribute to {key}.')
                 break
 
     final_num_handins = 0
     for key, handins in bags.items():
         final_num_handins += len(handins)
     if verbose or debug:
-        print(
-            f'[***] SANITY CHECK:\n\tOriginal number of handins: {num_handins}\n\tFinal number of handins:    {final_num_handins}'
+        console.print(
+            f'[***] SANITY CHECK:\n'
+            f'\tOriginal number of handins: {num_handins}\n'
+            f'\tFinal number of handins:    {final_num_handins}'
         )
         if num_handins != final_num_handins:
-            print(
-                '[!!!] FATAL ERROR: Final number of submissions is not equal to the original number. Something went terribly wrong.'
+            print_error(
+                'FATAL ERROR: Final number of submissions is not equal to the original number. '
+                'Something went terribly wrong.'
             )
-        print(f'[INFO] Done redistributing {num_handins} handins between {num_bags} TAs.')
-        print('{0:32}handins'.format('Hold'))
+        print_info(f'Done redistributing {num_handins} handins between {num_bags} TAs.')
+        console.print(f"{'Hold':<32}handins")
         for key, handins in bags.items():
-            print('{0:32}{1}'.format(key, len(handins)))
+            console.print(f'{key:<32}{len(handins)}')
 
     return bags
 
@@ -172,9 +178,9 @@ def distribute(bags, verbose=True, debug=False):
 # returns: the constructed dictionary
 def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     assignments = sort_by_name(course.get_assignments())
-    print('\nAssignments:')
+    console.print('\n[info]Assignments:[/info]')
     for n, assignment in enumerate(assignments):
-        print('%2d :' % n, assignment.name)
+        console.print(f'{n:2d} : {assignment.name}')
     index = int(input('Select assignment: '))
 
     # Preinitialize the "bags" with course_section_name
@@ -197,7 +203,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
         user = course.get_user(submission.user_id, include=['enrollments'])
 
         if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
-            print(f'User {user.name} handed in something')
+            print_info(f'User {user.name} handed in something')
             # each section is a key, pointing to a list of ku_id
             # user.enrollments[0] is the first enrollment for the user.
             # This *might* become problematic, wrt. section changes etc.
@@ -212,7 +218,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     # handins contains all the submissions, grouped by group
     num_handins = len(handins)
 
-    print(f'Number of handins: {num_handins}')
+    print_info(f'Number of handins: {num_handins}')
 
     for uuid, handin in handins.items():
         try:
@@ -225,8 +231,10 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
             users_and_sections[handin_section].append(ku_ids)
 
         except Exception as e:
-            print('Oh boy, something went terribly wrong when finding users from assignment')
-            print(f'{e}\n')
+            print_error(
+                'Oh boy, something went terribly wrong when finding users from assignment\n'
+                f'{e}'
+            )
 
     return users_and_sections
 
@@ -241,19 +249,19 @@ def get_section_info(course):
     sections = sorted(list(course.get_sections()), key=lambda x: x.name)
 
     for n, section in enumerate(sections):
-        print('%2d : ' % n, section.name)
+        console.print(f'{n:2d} : {section.name}')
     index = int(input('Which section: '))
 
     section = sections[index]
-    print('Fetching:', section)
+    print_info(f'Fetching: {section}')
 
     students = course.get_users(
         enrollment_type='student', enrollment_state='active', include=['enrollments']
     )
-    print('kuid,name')
+    console.print('kuid,name')
     for student in students:
         if student.enrollments[0]['course_section_id'] == section.id:
-            print('%6s,' % kuid(student.email), student.name)
+            console.print(f'{kuid(student.email):>6s},{student.name}')
 
 
 def get_course(api_url, api_key, course_id):
@@ -271,7 +279,9 @@ def add_subparser(subparsers: argparse._SubParsersAction):
         '--get-ass-dist',
         metavar='PATH',
         help=(
-            "select an assignment and construct a distribution between available TA's, resulting in a YAML-file suitable for using with the --select-ta flag in download subcommand where the result will be written to PATH"
+            "select an assignment and construct a distribution between available TA's, "
+            'resulting in a YAML-file suitable for using with the --select-ta flag in '
+            'download subcommand where the result will be written to PATH'
         ),
     )
     parser.add_argument('--ids', action='store_true', help='print kuids and names for a sections')
@@ -288,8 +298,8 @@ def main(api_url, api_key, args: argparse.Namespace):
     canvas = Canvas(api_url, api_key)
     try:
         course = canvas.get_course(course_id)
-    except:
-        print('Failed to parse course id.')
+    except Exception:
+        print_error('Failed to parse course id.')
         sys.exit(1)
 
     if fname is not None:
@@ -299,5 +309,5 @@ def main(api_url, api_key, args: argparse.Namespace):
         course = get_course(api_url, api_key, course_id)
         get_section_info(course)
     else:
-        print('Non-valid arguments.')
+        print_error('Non-valid arguments.')
         sys.exit(1)

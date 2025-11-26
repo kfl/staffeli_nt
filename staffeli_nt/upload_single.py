@@ -5,6 +5,7 @@ from os.path import isfile
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
+from .console import console, print_error, print_info
 from .util import *
 from .vas import *
 
@@ -14,14 +15,14 @@ NAME_SHEET = 'grade.yml'
 def grade(submission, grade, path_feedback, dry_run=True):
     # bail if dry
     if dry_run:
-        print(f'Would set grade to {grade} for user_id: {submission.user_id}')
+        print_info(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
-    print(f'Uploading new feedback for user_id: {submission.user_id}')
+    print_info(f'Uploading new feedback for user_id: {submission.user_id}')
     submission.upload_comment(path_feedback)
 
     # set grade
-    print(f'Setting grade to {grade} for user_id: {submission.user_id}')
+    print_info(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 
@@ -65,7 +66,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         sheet = parse_sheet(f.read())
 
     if not (isfile(path_feedback) and access(path_feedback, R_OK)):
-        print(f"File {path_feedback} doesn't exist or isn't readable")
+        print_error(f"File {path_feedback} doesn't exist or isn't readable")
         exit(1)
 
     canvas = Canvas(api_url, api_key)
@@ -73,11 +74,11 @@ def main(api_url, api_key, args: argparse.Namespace):
     assignment = course.get_assignment(meta.assignment.id)
 
     if live:
-        print('Uploading feedback to:', assignment)
+        console.print(f'[info]Uploading feedback to:[/info] {assignment}')
         choice = input('Sure? (y/n) : ')
         assert choice.strip() == 'y'
     else:
-        print('Doing a dry-run...')
+        print_info('Doing a dry-run...')
 
     for student in sheet.students:
         submission = assignment.get_submission(student.id)
