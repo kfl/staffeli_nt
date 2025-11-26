@@ -1,0 +1,51 @@
+name: Check Nix setup
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'shell.nix'
+  pull_request:
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'shell.nix'
+
+jobs:
+  nix-flake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Check flake
+        run: nix flake check
+
+      - name: Build development environment
+        run: nix develop --command echo "Development environment built successfully"
+
+      - name: Verify Python version
+        run: nix develop --command python --version
+
+      - name: Verify staffeli is available
+        run: nix develop --command staffeli --help
+
+  nix-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Test nix-shell (non-flake compatibility)
+        run: nix-shell --run "echo 'nix-shell works'"
+
+      - name: Verify Python in nix-shell
+        run: nix-shell --run "python --version"
+
+      - name: Verify staffeli in nix-shell
+        run: nix-shell --run "staffeli --help"
