@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 2  # Need parent commit to check if flake.lock changed
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -36,7 +34,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update flake.lock
+        id: check_changes
         run: |
+          # Record current HEAD to detect if --commit-lock-file creates a commit
+          BEFORE_HEAD=$(git rev-parse HEAD)
+
           if [ "${{ github.event.inputs.update_deps }}" = "true" ]; then
             echo "Updating Nix dependencies to latest versions..."
             nix flake update --commit-lock-file
@@ -45,15 +47,14 @@ jobs:
             nix flake lock --commit-lock-file
           fi
 
-      - name: Check if flake.lock changed
-        id: check_changes
-        run: |
-          if git diff --quiet HEAD~1 flake.lock 2>/dev/null; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No changes to flake.lock"
-          else
+          # Check if a commit was created by comparing HEAD
+          AFTER_HEAD=$(git rev-parse HEAD)
+          if [ "$BEFORE_HEAD" != "$AFTER_HEAD" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "flake.lock has changed"
+            echo "flake.lock has changed - commit created"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to flake.lock - no commit needed"
           fi
 
       - name: Create Pull Request
