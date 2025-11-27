@@ -10,8 +10,7 @@ on:
         type: boolean
   push:
     paths:
-      - 'uv.lock'
-      - 'pyproject.toml'
+      - 'flake.nix'
     branches:
       - 'main'
 
@@ -71,12 +70,12 @@ jobs:
           body: |
             ## Automated flake.lock update
 
-            This PR updates `flake.lock` in response to changes in `uv.lock` or `pyproject.toml`.
+            This PR updates `flake.lock` in response to changes in `flake.nix`.
 
             ### Changes
             - Ensures `flake.lock` is consistent with current `flake.nix`
-            - Keeps Nix development environment in sync with Python dependencies
-            - Does NOT update nixpkgs/uv2nix versions (use manual trigger for that)
+            - Locks Nix dependencies (nixpkgs, uv2nix, pyproject-nix)
+            - Does NOT update to newer versions of dependencies (use manual trigger with update_deps for that)
 
             ### Review
             - Check that the flake.lock diff looks reasonable
