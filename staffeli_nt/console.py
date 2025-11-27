@@ -4,7 +4,18 @@ This module provides a single Rich Console instance with consistent styling
 and theming for all terminal output in the application.
 """
 
+from collections.abc import Iterable
+from typing import TypeVar
+
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 from rich.theme import Theme
 
 # Custom theme with semantic colour names
@@ -108,3 +119,49 @@ def print_verbose(message: str) -> None:
     console.print(f'[verbose]{lines[0]}[/verbose]')
     for line in lines[1:]:
         console.print(f'  {line}')
+
+
+T = TypeVar('T')
+
+
+def with_progress(description: str, iterable: Iterable[T], total: int) -> Iterable[T]:
+    """Wrap an iterable with a progress bar.
+
+    Args:
+        description: Description to show in progress bar
+        iterable: The iterable to wrap (e.g., executor.map() result)
+        total: Total number of items expected
+
+    Yields:
+        Items from the iterable, while updating progress bar
+    """
+    with Progress(
+        SpinnerColumn(),
+        TextColumn('[progress.description]{task.description}'),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task(description, total=total)
+        for item in iterable:
+            yield item
+            progress.update(task, advance=1)
+
+
+def create_shared_progress() -> Progress:
+    """Create a Progress instance that can be shared across threads.
+
+    Returns:
+        A Progress instance configured for multi-threaded file downloads
+    """
+    return Progress(
+        SpinnerColumn(),
+        TextColumn('[progress.description]{task.description}'),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        expand=True,  # Expand to fill available space
+        refresh_per_second=10,  # Update display frequently
+    )

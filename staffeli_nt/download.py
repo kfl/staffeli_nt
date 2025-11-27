@@ -15,8 +15,15 @@ from zipfile import BadZipFile
 from canvasapi import Canvas  # type: ignore[import-untyped]
 from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
 
-from .console import console, print_error, print_info, print_warning
-from .util import download, run_onlineTA
+from .console import (
+    console,
+    create_shared_progress,
+    print_error,
+    print_info,
+    print_warning,
+    with_progress,
+)
+from .util import download, download_streaming, run_onlineTA
 from .vas import (
     Meta,
     MetaAssignment,
@@ -273,10 +280,16 @@ def process_submission(
     return result
 
 
-def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
+def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, progress=None):
     """
     Processes a single handin: downloads files, creates directories, and generates grading sheets.
     This function is designed to be run in a parallel executor.
+
+    Args:
+        item: Tuple of (uuid, handin_data)
+        home: Home directory for submissions
+        template: Grading template
+        progress: Optional Progress instance for showing file download progress
     """
     # Create a local YAML instance for this thread (ruamel.yaml is not thread-safe)
     local_yaml = create_yaml()
@@ -307,11 +320,36 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any):
         # download attachment
         filename = attachment.filename
         path = os.path.join(base, filename)
+
+        # Create a progress task for this file if progress tracking is enabled
+        task_id = None
+        if progress:
+            task_id = progress.add_task(f'{name}/{filename}', total=None)
+
         try:
-            data = download(attachment.url)
+            if progress:
+                # Use streaming download with progress callback
+                def update_progress(current: int, total: int):
+                    if task_id is not None:
+                        progress.update(task_id, completed=current, total=total)
+
+                data = download_streaming(attachment.url, progress_callback=update_progress)
+            else:
+                # Fallback to simple download without progress
+                data = download(attachment.url)
+
             with open(path, 'wb') as bf:
                 bf.write(data)
+
+            # Remove completed task
+            if progress and task_id is not None:
+                progress.remove_task(task_id)
+
         except Exception as e:
+            # Remove failed task
+            if progress and task_id is not None:
+                progress.remove_task(task_id)
+
             error_msg = (
                 f'Failed to download file: {filename}\n'
                 f'From: {student_names}\n'
@@ -444,14 +482,17 @@ def main(api_url, api_key, args: argparse.Namespace):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_API_WORKERS)
     try:
         # --- Phase 1: Fetch and process submissions in parallel (one per student) ---
-        print_info(f'Processing {len(student_ids)} submissions in parallel...')
         processed_results = list(
-            executor.map(
-                lambda sid: process_submission(
-                    sid, assignment, course, resubmissions_only, cancel_event
+            with_progress(
+                f'Processing {len(student_ids)} submissions',
+                executor.map(
+                    lambda sid: process_submission(
+                        sid, assignment, course, resubmissions_only, cancel_event
+                    ),
+                    student_ids,
+                    buffersize=buffersize,
                 ),
-                student_ids,
-                buffersize=buffersize,
+                total=len(student_ids),
             )
         )
 
@@ -471,14 +512,20 @@ def main(api_url, api_key, args: argparse.Namespace):
                     handins[uuid] = result['handin_data']
 
         # --- Phase 3: Download handins in parallel ---
-        print_info('Downloading submissions')
-
-        # process_handin doesn't return anything, so we just consume the iterator
-        list(
-            executor.map(
-                lambda item: process_handin(item, path_destination, template), handins.items()
+        # Use shared Progress to show both overall and per-file progress
+        with create_shared_progress() as progress:
+            # Add overall progress task (will appear at top initially)
+            overall_task = progress.add_task(
+                f'Downloading {len(handins)} submissions', total=len(handins)
             )
-        )
+
+            # Process with buffersize and track overall progress
+            for _ in executor.map(
+                lambda item: process_handin(item, path_destination, template, progress),
+                handins.items(),
+                buffersize=buffersize,
+            ):
+                progress.update(overall_task, advance=1)
     except Exception as e:
         # Determine error type and show appropriate message
         print_error('Error occurred during processing of submissions:')
