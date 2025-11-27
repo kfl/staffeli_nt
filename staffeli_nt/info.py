@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
-from .console import console, print_debug, print_error, print_info
+from .console import ask_menu, console, print_debug, print_error, print_info
 from .util import *
 from .vas import *
 
@@ -98,7 +98,7 @@ def distribute(bags, verbose=True, debug=False):
 
     if verbose or debug:
         print_info('Before redistribution:')
-        console.print(f"{'Hold':<32}handins")
+        console.print(f'{"Hold":<32}handins')
         for key, handins in bags.items():
             console.print(f'{key:<32}{len(handins)}')
 
@@ -164,7 +164,7 @@ def distribute(bags, verbose=True, debug=False):
                 'Something went terribly wrong.'
             )
         print_info(f'Done redistributing {num_handins} handins between {num_bags} TAs.')
-        console.print(f"{'Hold':<32}handins")
+        console.print(f'{"Hold":<32}handins')
         for key, handins in bags.items():
             console.print(f'{key:<32}{len(handins)}')
 
@@ -178,10 +178,9 @@ def distribute(bags, verbose=True, debug=False):
 # returns: the constructed dictionary
 def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     assignments = sort_by_name(course.get_assignments())
-    console.print('\n[info]Assignments:[/info]')
-    for n, assignment in enumerate(assignments):
-        console.print(f'{n:2d} : {assignment.name}')
-    index = int(input('Select assignment: '))
+    index = ask_menu(
+        'Select Assignment', [a.name for a in assignments], default=len(assignments) - 1
+    )
 
     # Preinitialize the "bags" with course_section_name
     users_and_sections: Dict[str, Any] = {}
@@ -232,8 +231,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
 
         except Exception as e:
             print_error(
-                'Oh boy, something went terribly wrong when finding users from assignment\n'
-                f'{e}'
+                f'Oh boy, something went terribly wrong when finding users from assignment\n{e}'
             )
 
     return users_and_sections
@@ -247,10 +245,7 @@ def create_and_write_assignment_distribution(course, fname, verbose=True, debug=
 
 def get_section_info(course):
     sections = sorted(list(course.get_sections()), key=lambda x: x.name)
-
-    for n, section in enumerate(sections):
-        console.print(f'{n:2d} : {section.name}')
-    index = int(input('Which section: '))
+    index = ask_menu('Select Section', [s.name for s in sections])
 
     section = sections[index]
     print_info(f'Fetching: {section}')

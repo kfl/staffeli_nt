@@ -16,22 +16,26 @@ from rich.progress import (
     TextColumn,
     TimeRemainingColumn,
 )
+from rich.prompt import Confirm, IntPrompt
 from rich.theme import Theme
 
 # Custom theme with semantic colour names
-staffeli_theme = Theme({
-    'info': 'cyan',
-    'success': 'green',
-    'warning': 'yellow',
-    'error': 'red bold',
-    'highlight': 'magenta',
-    'progress': 'blue',
-    'muted': 'dim',
-    'debug': 'blue dim',
-    'verbose': 'dim',
-})
+staffeli_theme = Theme(
+    {
+        'info': 'cyan',
+        'success': 'green',
+        'warning': 'yellow',
+        'error': 'red bold',
+        'highlight': 'magenta',
+        'progress': 'blue',
+        'muted': 'dim',
+        'debug': 'blue dim',
+        'verbose': 'dim',
+        'menu': 'bright_cyan bold',
+    }
+)
 
-console = Console(theme=staffeli_theme)
+console = Console(theme=staffeli_theme, highlight=False)
 
 
 def print_error(message: str) -> None:
@@ -165,3 +169,41 @@ def create_shared_progress() -> Progress:
         expand=True,  # Expand to fill available space
         refresh_per_second=10,  # Update display frequently
     )
+
+
+def ask_menu(prompt: str, options: list, default: int | None = None) -> int:
+    """Display a menu and prompt for selection.
+
+    Args:
+        prompt: The prompt message to display (e.g., "Select assignment")
+        options: List of options to display (will be converted to strings)
+        default: Optional default index (0-based)
+
+    Returns:
+        The index of the selected option (0-based)
+    """
+    console.print(f'\n[info]{prompt}:[/info]')
+    for n, option in enumerate(options):
+        console.print(f'[menu]{n:2d}[/menu] : {option}')
+
+    while True:
+        if default is not None:
+            result = IntPrompt.ask('Select', console=console, default=default)
+        else:
+            result = IntPrompt.ask('Select', console=console)
+        if 0 <= result < len(options):
+            return result
+        print_error(f'Please enter a number between 0 and {len(options) - 1}')
+
+
+def ask_confirm(prompt: str, default: bool = False) -> bool:
+    """Ask for yes/no confirmation.
+
+    Args:
+        prompt: The question to ask
+        default: Default answer if user just presses Enter
+
+    Returns:
+        True if user confirms, False otherwise
+    """
+    return Confirm.ask(f'[warning]{prompt}[/warning]', console=console, default=default)

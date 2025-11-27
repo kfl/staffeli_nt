@@ -5,7 +5,14 @@ import tempfile
 from canvasapi import Canvas  # type: ignore[import-untyped]
 from ruamel.yaml import YAMLError
 
-from .console import console, print_error, print_info, print_success, print_warning
+from .console import (
+    ask_confirm,
+    console,
+    print_error,
+    print_info,
+    print_success,
+    print_warning,
+)
 from .util import *
 from .vas import *
 
@@ -166,8 +173,8 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     if live:
         console.print(f'[info]Uploading feedback for assignment:[/info] {assignment.name}')
-        choice = input('Sure? (y/n) : ')
-        assert choice.strip() == 'y'
+        if not ask_confirm('Upload feedback for this assignment?'):
+            return
     else:
         print_info('Doing a dry-run...')
 

@@ -16,6 +16,7 @@ from canvasapi import Canvas  # type: ignore[import-untyped]
 from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
 
 from .console import (
+    ask_menu,
     console,
     create_shared_progress,
     print_error,
@@ -86,10 +87,7 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
     section = None
 
     if select_ta:
-        console.print('\n[info]TAs:[/info]')
-        for n, ta_name in enumerate(tas):
-            console.print(f'{n:2d} : {ta_name}')
-        index = int(input('Select TA: '))
+        index = ask_menu('Select TA', tas)
         students = []
         for i in stud[index]:
             # Need full user lookup for search_term matching
@@ -100,10 +98,7 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
 
     elif select_section:
         sections = sort_by_name(course.get_sections())
-        console.print('\n[info]Sections:[/info]')
-        for n, sec in enumerate(sections):
-            console.print(f'{n:2d} : {sec.name}')
-        index = int(input('Select section: '))
+        index = ask_menu('Select Section', [sec.name for sec in sections])
         section = course.get_section(sections[index].id, include=['students', 'enrollments'])
         student_ids = [
             s['id']
@@ -456,11 +451,9 @@ def main(api_url, api_key, args: argparse.Namespace):
     canvas = Canvas(api_url, api_key)
     course = canvas.get_course(course_id)
     assignments = sort_by_name(course.get_assignments())
-
-    console.print('\n[info]Assignments:[/info]')
-    for n, assignment in enumerate(assignments):
-        console.print(f'{n:2d} : {assignment.name}')
-    index = int(input('Select assignment: '))
+    index = ask_menu(
+        'Select Assignment', [a.name for a in assignments], default=len(assignments) - 1
+    )
     assignment = assignments[index]
 
     # Get student IDs based on selection criteria (TA/section/all)

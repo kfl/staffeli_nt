@@ -1,11 +1,10 @@
-
 import argparse
 from os import R_OK, access
 from os.path import isfile
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
-from .console import console, print_error, print_info
+from .console import ask_confirm, console, print_error, print_info
 from .util import *
 from .vas import *
 
@@ -75,8 +74,8 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     if live:
         console.print(f'[info]Uploading feedback to:[/info] {assignment}')
-        choice = input('Sure? (y/n) : ')
-        assert choice.strip() == 'y'
+        if not ask_confirm('Sure?'):
+            return
     else:
         print_info('Doing a dry-run...')
 
