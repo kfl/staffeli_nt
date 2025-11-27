@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 2  # Need parent commit to check if flake.lock changed
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -47,10 +49,12 @@ jobs:
       - name: Check if flake.lock changed
         id: check_changes
         run: |
-          if git diff --quiet HEAD~1 flake.lock; then
+          if git diff --quiet HEAD~1 flake.lock 2>/dev/null; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to flake.lock"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "flake.lock has changed"
           fi
 
       - name: Create Pull Request
@@ -59,9 +63,11 @@ jobs:
         with:
           commit-message: "chore: update flake.lock after uv.lock changes"
           title: "Update flake.lock for Nix environment"
-          # base defaults to the branch that triggered the workflow
-          # For push events: main branch
-          # For manual triggers: the branch selected in GitHub UI
+          # Create PR against the branch that triggered the workflow
+          # For push events: PR targets the branch that was pushed to
+          # For manual triggers: PR targets the branch selected in the GitHub UI
+          # Without explicit base, the action defaults to the repository's default branch (main)
+          base: ${{ github.ref_name }}
           body: |
             ## Automated flake.lock update
 
