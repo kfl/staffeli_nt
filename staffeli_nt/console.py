@@ -38,6 +38,15 @@ staffeli_theme = Theme(
 console = Console(theme=staffeli_theme, highlight=False)
 
 
+# Global debug state - controlled via set_debug_mode()
+_debug_enabled = False
+
+
+def set_debug_mode(enabled: bool) -> None:
+    global _debug_enabled
+    _debug_enabled = enabled
+
+
 def print_error(message: str) -> None:
     """Print an error message in red with bold 'Error:' prefix.
 
@@ -100,11 +109,15 @@ def print_info(message: str) -> None:
 def print_debug(message: str) -> None:
     """Print a debug message in blue dim with [DEBUG] prefix.
 
+    Only prints if debug mode is enabled via set_debug_mode().
     Multi-line messages are automatically indented for readability.
 
     Args:
         message: The debug message to display
     """
+    if not _debug_enabled:
+        return
+
     lines = message.split('\n')
     console.print(f'[debug][DEBUG][/debug] {lines[0]}')
     for line in lines[1:]:
@@ -123,6 +136,47 @@ def print_verbose(message: str) -> None:
     console.print(f'[verbose]{lines[0]}[/verbose]')
     for line in lines[1:]:
         console.print(f'  {line}')
+
+
+def format_exception_debug(e: Exception, include_trace: bool = True) -> str:
+    """Format exception details for debug output.
+
+    Includes exception type, message, cause chain, and optional stack trace.
+
+    Args:
+        e: The exception to format
+        include_trace: Whether to include stack trace (default: True)
+
+    Returns:
+        Formatted string with exception details
+    """
+    import traceback
+
+    lines = []
+    lines.append(f'Exception type: {type(e).__name__}')
+    lines.append(f'Exception message: {str(e)}')
+
+    # Walk the exception chain
+    if e.__cause__ or e.__context__:
+        lines.append('')
+        lines.append('Exception chain:')
+        current = e.__cause__ if e.__cause__ else e.__context__
+        depth = 1
+        while current:
+            lines.append(f'  {"  " * depth}Caused by: {type(current).__name__}: {str(current)}')
+            current = current.__cause__ if current.__cause__ else current.__context__
+            depth += 1
+
+    # Stack trace (last 10 frames to keep manageable)
+    if include_trace:
+        lines.append('')
+        lines.append('Stack trace:')
+        tb_lines = traceback.format_tb(e.__traceback__)
+        for tb_line in tb_lines[-10:]:
+            for line in tb_line.strip().split('\n'):
+                lines.append(f'  {line}')
+
+    return '\n'.join(lines)
 
 
 T = TypeVar('T')

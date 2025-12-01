@@ -1,4 +1,5 @@
 import argparse
+import sys
 from os import R_OK, access
 from os.path import isfile
 
@@ -57,12 +58,9 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     live = args.live
 
-    with open(path_meta_yml, 'r') as f:
-        meta = parse_meta(f.read())
-
-    # get grade.yml
-    with open(path_grade_yml, 'r') as f:
-        sheet = parse_sheet(f.read())
+    meta = load_meta_or_exit(path_meta_yml)
+    if (sheet := load_and_parse_yaml(path_grade_yml, parse_sheet, 'grade sheet')) is None:
+        sys.exit(1)
 
     if not (isfile(path_feedback) and access(path_feedback, R_OK)):
         print_error(f"File {path_feedback} doesn't exist or isn't readable")

@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from .console import console, print_success, print_warning
+from .console import console, print_error, print_success, print_warning
 from .vas import *
 
 NAME_SHEET = 'grade.yml'
@@ -24,10 +24,10 @@ def main(api_url, api_key, args: argparse.Namespace):
     path_template = args.path_template
     path_submissions = args.path_submissions
 
-    sheets = []
+    sheets: list[tuple[str, GradingSheet]] = []
+    error_files: list[str] = []
 
-    with open(path_template, 'r') as f:
-        tmpl = parse_template(f.read())
+    tmpl = load_template_or_exit(path_template)
 
     # fetch every grading sheet
     for root, dirs, files in os.walk(path_submissions):
@@ -36,9 +36,26 @@ def main(api_url, api_key, args: argparse.Namespace):
                 continue
 
             path = os.path.join(root, name)
-            # print(path)
-            with open(path, 'r') as f:
-                sheets.append((path, parse_sheet(f.read())))
+            if (result := load_gradingsheet(path)) is not None:
+                sheets.append(result)
+            else:
+                error_files.append(path)
+
+    # Report any files that failed to parse
+    if error_files:
+        print_error(
+            f"""Cannot scan grades - {len(error_files)} file(s) could not be parsed.
+
+Files with errors:"""
+        )
+        for error_file in error_files:
+            console.print(f'  [error]✗[/error] {error_file}')
+        print_error(
+            """
+Please fix the errors above and try again.
+Run with --debug for detailed error information."""
+        )
+        exit(1)
 
     # check that every sheet is complete
     graded = True

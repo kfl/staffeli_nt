@@ -19,22 +19,22 @@ from .console import (
     ask_menu,
     console,
     create_shared_progress,
+    format_exception_debug,
+    print_debug,
     print_error,
     print_info,
     print_warning,
     with_progress,
 )
-from .util import download, download_streaming, run_onlineTA
+from .util import download, download_streaming, dump_yaml, run_onlineTA
 from .vas import (
     Meta,
     MetaAssignment,
     MetaCourse,
     create_sheet,
     create_student,
-    create_yaml,
-    parse_students_and_tas,
-    parse_template,
-    yaml,
+    load_students_and_tas_or_exit,
+    load_template_or_exit,
 )
 
 # Canvas API rate limit settings
@@ -171,32 +171,12 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
         )
         sys.exit(1)
 
-    try:
-        with open(path_template, 'r') as f:
-            template = parse_template(f.read())
-    except FileNotFoundError:
-        print_error(f"Template file '{path_template}' not found.")
-        sys.exit(1)
-    except Exception as e:
-        print_error(f"Failed to parse template file '{path_template}'\nReason: {e}")
-        sys.exit(1)
+    template = load_template_or_exit(path_template)
 
     tas = None
     stud = None
     if select_ta is not None:
-        try:
-            with open(select_ta, 'r') as f:
-                (tas, stud) = parse_students_and_tas(f)
-        except FileNotFoundError:
-            print_error(f"TA list file '{select_ta}' not found.")
-            sys.exit(1)
-        except Exception as e:
-            print_error(
-                f"Failed to parse TA list file '{select_ta}'\n"
-                f'Reason: {e}\n'
-                'Do all TAs have at least one student attached?'
-            )
-            sys.exit(1)
+        (tas, stud) = load_students_and_tas_or_exit(select_ta)
 
     return (template, tas, stud)
 
@@ -286,9 +266,6 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
         template: Grading template
         progress: Optional Progress instance for showing file download progress
     """
-    # Create a local YAML instance for this thread (ruamel.yaml is not thread-safe)
-    local_yaml = create_yaml()
-
     uuid, handin = item
     student_names = ', '.join([u.name for u in handin['students']])
     print_info(f'Downloading submission from: {student_names}')
@@ -349,10 +326,11 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
                 f'Failed to download file: {filename}\n'
                 f'From: {student_names}\n'
                 f'Submission directory: {base}\n'
-                f'URL: {attachment.url}\n'
-                f'Error: {e}'
+                f'URL: {attachment.url}\n\n'
+                f'Run with --debug for details'
             )
             print_error(error_msg)
+            print_debug(format_exception_debug(e))
             raise RuntimeError(error_msg) from e
 
         # unzip attachments
@@ -373,7 +351,13 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
             except BadZipFile:
                 print_warning(f'Attached archive not a zip-file: {name}')
             except Exception as e:
-                print_error(f'Error when unzipping file {filename}\nError message: {e}')
+                print_error(
+                    f'Failed to unzip file: {filename}\n'
+                    f'Submission: {name}\n'
+                    f'Directory: {base}\n\n'
+                    f'Run with --debug for details'
+                )
+                print_debug(format_exception_debug(e))
 
     # remove junk from submission directory
     junk = ['.git', '__MACOSX', '.stack-work', '.DS_Store']
@@ -388,8 +372,9 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
     # create grading sheet from template
     grade = os.path.join(base, 'grade.yml')
     sheet = create_sheet(template, sorted(handin['students'], key=lambda u: u.login_id))
-    with open(grade, 'w') as f:
-        local_yaml.dump(sheet.serialize(), f)
+    if not dump_yaml(grade, sheet.serialize(), f'grading sheet (submission: {name})'):
+        error_msg = f'Failed to write grading sheet: {grade}\nSubmission: {name}'
+        raise RuntimeError(error_msg)
 
     # Dump submission comments
     if handin['comments']:
@@ -399,8 +384,18 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
             while os.path.exists(comment_path):
                 fname_i += 1
                 comment_path = os.path.join(base, f'submission_comments({fname_i}).txt')
-        with open(comment_path, 'w', encoding='utf-8-sig') as f:
-            f.write(handin['comments'])
+        try:
+            with open(comment_path, 'w', encoding='utf-8-sig') as f:
+                f.write(handin['comments'])
+        except OSError as e:
+            error_msg = (
+                f'Failed to write submission comments: {comment_path}\n'
+                f'Submission: {name}\n\n'
+                f'Run with --debug for details'
+            )
+            print_error(error_msg)
+            print_debug(format_exception_debug(e))
+            raise RuntimeError(error_msg) from e
 
 
 def add_subparser(subparsers: argparse._SubParsersAction):
@@ -556,20 +551,17 @@ def main(api_url, api_key, args: argparse.Namespace):
         executor.shutdown(wait=True)
 
     # --- Final Sequential File Writes ---
-    with open(os.path.join(path_destination, 'empty.yml'), 'w') as f:
-        yaml.dump(
-            [
-                create_student(p).serialize()
-                for p in sorted(empty_handins, key=lambda u: u.login_id)
-            ],
-            f,
-        )
+    empty_path = os.path.join(path_destination, 'empty.yml')
+    empty_data = [
+        create_student(p).serialize() for p in sorted(empty_handins, key=lambda u: u.login_id)
+    ]
+    dump_yaml(empty_path, empty_data, 'empty submissions list', exit_on_error=True)
 
-    with open(os.path.join(path_destination, 'meta.yml'), 'w') as f:
-        meta_data = Meta(
-            course=MetaCourse(course.id, course.name),
-            assignment=MetaAssignment(
-                assignment.id, assignment.name, section=section.id if section else None
-            ),
-        )
-        yaml.dump(meta_data.serialize(), f)
+    meta_path = os.path.join(path_destination, 'meta.yml')
+    meta_data = Meta(
+        course=MetaCourse(course.id, course.name),
+        assignment=MetaAssignment(
+            assignment.id, assignment.name, section=section.id if section else None
+        ),
+    )
+    dump_yaml(meta_path, meta_data.serialize(), 'assignment metadata', exit_on_error=True)

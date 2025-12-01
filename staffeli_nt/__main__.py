@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from staffeli_nt import download, info, scan, upload, upload_single
-from staffeli_nt.console import print_error
+from staffeli_nt.console import print_error, set_debug_mode
 
 
 def get_version() -> str:
@@ -52,6 +52,11 @@ def main() -> None:
         metavar='PATH',
         help='path to Canvas token file (default: ~/.canvas.token)',
     )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='show detailed error information and stack traces',
+    )
 
     # Add all subparsers
     subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
@@ -63,6 +68,9 @@ def main() -> None:
 
     # Parse arguments (--help and --version work here!)
     args = parser.parse_args()
+
+    # Set debug mode globally (checked only in console.py)
+    set_debug_mode(args.debug)
 
     # Check if subcommand was provided
     if not hasattr(args, 'main'):

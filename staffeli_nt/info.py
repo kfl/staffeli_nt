@@ -38,18 +38,21 @@ def sort_by_name(named):
 # Write the ta_list that can be given as input to staffeli
 # in order to download only specified assignments
 def write_ta_list(distribution, fname):
-    with open(fname, 'w') as ta_list_file:
-        for sectionname, ids in distribution.items():
-            # Only write entry if there are actually any handins
-            if len(ids) > 0:
-                # First do a stupid conversion to remove any duplicates
-                # There shouldn't be any, but JIC
-                list_ids = list(set(ids))
-                # If this is a group handin, split the group-members' ids onto multiple lines
-                fixed_ids = ['- ' + x.replace('-', '\n- ') + '\n' for x in list_ids]
-                idlist = ''.join(fixed_ids)
-                entry = '\n{0}:\n{1}\n'.format(sectionname, idlist)
-                ta_list_file.write(entry)
+    # Build content in memory first
+    content_parts = []
+    for sectionname, ids in distribution.items():
+        # Only write entry if there are actually any handins
+        if len(ids) > 0:
+            # First do a stupid conversion to remove any duplicates
+            # There shouldn't be any, but JIC
+            list_ids = list(set(ids))
+            # If this is a group handin, split the group-members' ids onto multiple lines
+            fixed_ids = ['- ' + x.replace('-', '\n- ') + '\n' for x in list_ids]
+            idlist = ''.join(fixed_ids)
+            entry = '\n{0}:\n{1}\n'.format(sectionname, idlist)
+            content_parts.append(entry)
+
+    write_file(fname, ''.join(content_parts), 'TA distribution list')
 
 
 # We have some sections that are useless,
@@ -293,8 +296,9 @@ def main(api_url, api_key, args: argparse.Namespace):
     canvas = Canvas(api_url, api_key)
     try:
         course = canvas.get_course(course_id)
-    except Exception:
-        print_error('Failed to parse course id.')
+    except Exception as e:
+        print_error(f'Cannot access course: {course_id}\n\nRun with --debug for details')
+        print_debug(format_exception_debug(e))
         sys.exit(1)
 
     if fname is not None:
@@ -304,5 +308,15 @@ def main(api_url, api_key, args: argparse.Namespace):
         course = get_course(api_url, api_key, course_id)
         get_section_info(course)
     else:
-        print_error('Non-valid arguments.')
+        print_error("""Missing required argument for 'info' subcommand.
+
+You must specify one of:
+  --get-ass-dist PATH    Generate TA distribution file
+  --ids                  Show student IDs for a section
+
+Example: staffeli info 12345 --get-ass-dist ta_list.yml
+Example: staffeli info 12345 --ids
+
+For more help: staffeli info --help""")
+        print_debug(f'Arguments provided: course_id={course_id}, fname={fname}, ids={ids}')
         sys.exit(1)
