@@ -6,8 +6,8 @@ from os.path import isfile
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
 from .console import ask_confirm, console, print_error, print_info
-from .util import *
-from .vas import *
+from .util import load_and_parse_yaml
+from .vas import load_meta_or_exit, parse_sheet
 
 NAME_SHEET = 'grade.yml'
 

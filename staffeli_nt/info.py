@@ -7,9 +7,8 @@ from typing import Any, Dict
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
-from .console import ask_menu, console, print_debug, print_error, print_info
-from .util import *
-from .vas import *
+from . import console as con
+from .util import write_file
 
 
 def digest(data):
@@ -85,10 +84,10 @@ def distribute(bags, verbose=True, debug=False):
     # Each bag should contain at most avg, the number of handins / number of TAs, rounded up
     avg = math.ceil(num_handins / num_bags)
     if verbose or debug:
-        print_info(f'Total: {num_handins}')
-        print_info(f'TAs: {num_bags}')
-        print_info(f'Avg, rounded up: {avg}')
-        print_info(f'Initial unassigned submissions: {len(unass_ass_stack)}')
+        con.print_info(f'Total: {num_handins}')
+        con.print_info(f'TAs: {num_bags}')
+        con.print_info(f'Avg, rounded up: {avg}')
+        con.print_info(f'Initial unassigned submissions: {len(unass_ass_stack)}')
 
     # The general algorithm:
     #    1) Sort the bags in order of descending number of handins
@@ -100,10 +99,10 @@ def distribute(bags, verbose=True, debug=False):
     #           redistribute submission from a bag with >= avg submissions
 
     if verbose or debug:
-        print_info('Before redistribution:')
-        console.print(f'{"Hold":<32}handins')
+        con.print_info('Before redistribution:')
+        con.print(f'{"Hold":<32}handins')
         for key, handins in bags.items():
-            console.print(f'{key:<32}{len(handins)}')
+            con.print(f'{key:<32}{len(handins)}')
 
     # We iterate over all bags, sorted in order of descending number of handins
     baglist = sorted(
@@ -132,44 +131,44 @@ def distribute(bags, verbose=True, debug=False):
         filter(lambda x: x[0] >= avg, [(len(handins), key) for (key, handins) in bags.items()])
     )
     if debug:
-        print_debug(f'Nonfull bags:\n{nonfull}\nFull bags:\n{full}')
+        con.print_debug(f'Nonfull bags:\n{nonfull}\nFull bags:\n{full}')
 
     for handins, key in nonfull:
         if (avg - handins - 1) > len(full):
-            print_error(
+            con.print_error(
                 'INTERNAL ERROR: Ran out of submissions to redistribute. Skipping redistribution.'
             )
             break
         if debug:
             needed = avg - handins - 1
-            print_debug(f'{key} needs {needed} submissions. We have {len(full)} to give out.')
+            con.print_debug(f'{key} needs {needed} submissions. We have {len(full)} to give out.')
         for _ in range(avg - handins - 1):
             try:
                 fh, fk = full[0]
                 bags[key].append(bags[fk].pop())
                 full.remove((fh, fk))
             except (IndexError, KeyError):
-                print_error(f'INTERNAL ERROR: Ran out of submissions to redistribute to {key}.')
+                con.print_error(f'INTERNAL ERROR: Ran out of submissions to redistribute to {key}.')
                 break
 
     final_num_handins = 0
     for key, handins in bags.items():
         final_num_handins += len(handins)
     if verbose or debug:
-        console.print(
+        con.print(
             f'[***] SANITY CHECK:\n'
             f'\tOriginal number of handins: {num_handins}\n'
             f'\tFinal number of handins:    {final_num_handins}'
         )
         if num_handins != final_num_handins:
-            print_error(
+            con.print_error(
                 'FATAL ERROR: Final number of submissions is not equal to the original number. '
                 'Something went terribly wrong.'
             )
-        print_info(f'Done redistributing {num_handins} handins between {num_bags} TAs.')
-        console.print(f'{"Hold":<32}handins')
+        con.print_info(f'Done redistributing {num_handins} handins between {num_bags} TAs.')
+        con.print(f'{"Hold":<32}handins')
         for key, handins in bags.items():
-            console.print(f'{key:<32}{len(handins)}')
+            con.print(f'{key:<32}{len(handins)}')
 
     return bags
 
@@ -181,7 +180,7 @@ def distribute(bags, verbose=True, debug=False):
 # returns: the constructed dictionary
 def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     assignments = sort_by_name(course.get_assignments())
-    index = ask_menu(
+    index = con.ask_menu(
         'Select Assignment', [a.name for a in assignments], default=len(assignments) - 1
     )
 
@@ -205,7 +204,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
         user = course.get_user(submission.user_id, include=['enrollments'])
 
         if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
-            print_info(f'User {user.name} handed in something')
+            con.print_info(f'User {user.name} handed in something')
             # each section is a key, pointing to a list of ku_id
             # user.enrollments[0] is the first enrollment for the user.
             # This *might* become problematic, wrt. section changes etc.
@@ -220,7 +219,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
     # handins contains all the submissions, grouped by group
     num_handins = len(handins)
 
-    print_info(f'Number of handins: {num_handins}')
+    con.print_info(f'Number of handins: {num_handins}')
 
     for uuid, handin in handins.items():
         try:
@@ -233,7 +232,7 @@ def get_handins_by_sections(course: Any) -> Dict[str, list[str]]:
             users_and_sections[handin_section].append(ku_ids)
 
         except Exception as e:
-            print_error(
+            con.print_error(
                 f'Oh boy, something went terribly wrong when finding users from assignment\n{e}'
             )
 
@@ -248,18 +247,18 @@ def create_and_write_assignment_distribution(course, fname, verbose=True, debug=
 
 def get_section_info(course):
     sections = sorted(list(course.get_sections()), key=lambda x: x.name)
-    index = ask_menu('Select Section', [s.name for s in sections])
+    index = con.ask_menu('Select Section', [s.name for s in sections])
 
     section = sections[index]
-    print_info(f'Fetching: {section}')
+    con.print_info(f'Fetching: {section}')
 
     students = course.get_users(
         enrollment_type='student', enrollment_state='active', include=['enrollments']
     )
-    console.print('kuid,name')
+    con.print('kuid,name')
     for student in students:
         if student.enrollments[0]['course_section_id'] == section.id:
-            console.print(f'{kuid(student.email):>6s},{student.name}')
+            con.print(f'{kuid(student.email):>6s},{student.name}')
 
 
 def get_course(api_url, api_key, course_id):
@@ -297,8 +296,8 @@ def main(api_url, api_key, args: argparse.Namespace):
     try:
         course = canvas.get_course(course_id)
     except Exception as e:
-        print_error(f'Cannot access course: {course_id}\n\nRun with --debug for details')
-        print_debug(format_exception_debug(e))
+        con.print_error(f'Cannot access course: {course_id}\n\nRun with --debug for details')
+        con.print_debug(con.format_exception_debug(e))
         sys.exit(1)
 
     if fname is not None:
@@ -308,7 +307,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         course = get_course(api_url, api_key, course_id)
         get_section_info(course)
     else:
-        print_error("""Missing required argument for 'info' subcommand.
+        con.print_error("""Missing required argument for 'info' subcommand.
 
 You must specify one of:
   --get-ass-dist PATH    Generate TA distribution file
@@ -318,5 +317,5 @@ Example: staffeli info 12345 --get-ass-dist ta_list.yml
 Example: staffeli info 12345 --ids
 
 For more help: staffeli info --help""")
-        print_debug(f'Arguments provided: course_id={course_id}, fname={fname}, ids={ids}')
+        con.print_debug(f'Arguments provided: course_id={course_id}, fname={fname}, ids={ids}')
         sys.exit(1)

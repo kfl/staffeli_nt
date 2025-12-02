@@ -2,7 +2,7 @@ import argparse
 import os
 
 from .console import console, print_error, print_success, print_warning
-from .vas import *
+from .vas import GradingSheet, load_gradingsheet, load_template_or_exit
 
 NAME_SHEET = 'grade.yml'
 

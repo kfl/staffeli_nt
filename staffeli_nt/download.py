@@ -15,30 +15,12 @@ from zipfile import BadZipFile
 from canvasapi import Canvas  # type: ignore[import-untyped]
 from canvasapi.exceptions import CanvasException, RateLimitExceeded  # type: ignore[import-untyped]
 
-from .console import (
-    ask_menu,
-    console,
-    create_shared_progress,
-    format_exception_debug,
-    print_debug,
-    print_error,
-    print_info,
-    print_warning,
-    with_progress,
-)
+from . import console as con
+from . import vas
 from .util import download, download_streaming, dump_yaml, run_onlineTA
-from .vas import (
-    Meta,
-    MetaAssignment,
-    MetaCourse,
-    create_sheet,
-    create_student,
-    load_students_and_tas_or_exit,
-    load_template_or_exit,
-)
 
 # Canvas API rate limit settings
-MAX_API_WORKERS = 100
+MAX_API_WORKERS = 50
 RATE_LIMIT_RETRY_DELAY = 2.0  # 2s wait when rate limited
 MAX_RETRIES = 3
 SUBMISSION_BUFFER_SIZE = 30  # Buffer size for pagination consumption
@@ -87,7 +69,7 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
     section = None
 
     if select_ta:
-        index = ask_menu('Select TA', tas)
+        index = con.ask_menu('Select TA', tas)
         students = []
         for i in stud[index]:
             # Need full user lookup for search_term matching
@@ -98,7 +80,7 @@ def get_student_ids(canvas, course, course_id, select_ta, select_section, tas, s
 
     elif select_section:
         sections = sort_by_name(course.get_sections())
-        index = ask_menu('Select Section', [sec.name for sec in sections])
+        index = con.ask_menu('Select Section', [sec.name for sec in sections])
         section = course.get_section(sections[index].id, include=['students', 'enrollments'])
         student_ids = [
             s['id']
@@ -165,18 +147,18 @@ def validate_inputs(path_destination: str, path_template: str, select_ta: str | 
         tuple: (template, tas, stud) where tas and stud are None if select_ta is not used
     """
     if os.path.exists(path_destination):
-        print_error(
+        con.print_error(
             f"Destination directory '{path_destination}' already exists.\n"
             'Please choose a different directory name or remove the existing directory.'
         )
         sys.exit(1)
 
-    template = load_template_or_exit(path_template)
+    template = vas.load_template_or_exit(path_template)
 
     tas = None
     stud = None
     if select_ta is not None:
-        (tas, stud) = load_students_and_tas_or_exit(select_ta)
+        (tas, stud) = vas.load_students_and_tas_or_exit(select_ta)
 
     return (template, tas, stud)
 
@@ -199,7 +181,7 @@ def process_submission(
                 # Add random jitter (0-500ms) to avoid thundering herd problem
                 jitter = random.uniform(0, 0.5)
                 delay = RATE_LIMIT_RETRY_DELAY + jitter
-                print_warning(
+                con.print_warning(
                     f'Rate limit exceeded, retrying in {delay:.2f}s... '
                     f'(attempt {retry_count + 1}/{MAX_RETRIES})'
                 )
@@ -215,19 +197,19 @@ def process_submission(
                     cancel_event,
                     retry_count + 1,
                 )
-            print_error(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
+            con.print_error(f'Rate limit exceeded after {MAX_RETRIES} retries, giving up')
         raise
 
     result = {'user': user, 'is_empty': True}  # Assume empty by default
 
     if hasattr(submission, 'attachments') and len(submission.attachments) > 0:
-        print_info(f'User {user.name} handed in something')
+        con.print_info(f'User {user.name} handed in something')
         # NOTE: This is a terribly hacky solution and should really be rewritten
         # collect which attachments to download
         # if only fetching resubmissions
         if resubmissions_only:
             if hasattr(submission, 'score'):
-                print_info(f'Score: {submission.score}')
+                con.print_info(f'Score: {submission.score}')
                 # If a submission has not yet been graded, submission.score will be None
                 if submission.score is None or submission.score < 1.0:
                     files = [s for s in submission.attachments]
@@ -268,7 +250,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
     """
     uuid, handin = item
     student_names = ', '.join([u.name for u in handin['students']])
-    print_info(f'Downloading submission from: {student_names}')
+    con.print_info(f'Downloading submission from: {student_names}')
 
     # create submission directory
     name = '-'.join(sorted([kuid(u.login_id) for u in handin['students']]))
@@ -280,12 +262,12 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
         1 for x in handin['files'] if '.zip' in x.filename.lower() or x.mime_class == 'zip'
     )
     if num_zip_files > 1:
-        print_warning(
+        con.print_warning(
             f'Submission contains {num_zip_files} files that look like zip-files.\n'
             'Will attempt to unzip into separate directories.'
         )
         if template.onlineTA is not None:
-            print_warning('Will not submit to OnlineTA, due to multiple zip-files')
+            con.print_warning('Will not submit to OnlineTA, due to multiple zip-files')
 
     # download submission
     for attachment in handin['files']:
@@ -329,8 +311,8 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
                 f'URL: {attachment.url}\n\n'
                 f'Run with --debug for details'
             )
-            print_error(error_msg)
-            print_debug(format_exception_debug(e))
+            con.print_error(error_msg)
+            con.print_debug(con.format_exception_debug(e))
             raise RuntimeError(error_msg) from e
 
         # unzip attachments
@@ -338,7 +320,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
             unpacked = os.path.join(base, 'unpacked')
             if num_zip_files > 1 or os.path.exists(unpacked):
                 unpacked = os.path.join(base, f'{filename}_unpacked')
-                print_info(f'Attempting to unzip {filename} into {unpacked}')
+                con.print_info(f'Attempting to unzip {filename} into {unpacked}')
             os.mkdir(unpacked)
             try:
                 with zipfile.ZipFile(path, 'r') as zip_ref:
@@ -347,17 +329,17 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
                         if template.onlineTA is not None and num_zip_files == 1:
                             run_onlineTA(base, unpacked, template.onlineTA)
                     except NotADirectoryError:
-                        print_error(f'Attempted to unzip into a non-directory: {name}')
+                        con.print_error(f'Attempted to unzip into a non-directory: {name}')
             except BadZipFile:
-                print_warning(f'Attached archive not a zip-file: {name}')
+                con.print_warning(f'Attached archive not a zip-file: {name}')
             except Exception as e:
-                print_error(
+                con.print_error(
                     f'Failed to unzip file: {filename}\n'
                     f'Submission: {name}\n'
                     f'Directory: {base}\n\n'
                     f'Run with --debug for details'
                 )
-                print_debug(format_exception_debug(e))
+                con.print_debug(con.format_exception_debug(e))
 
     # remove junk from submission directory
     junk = ['.git', '__MACOSX', '.stack-work', '.DS_Store']
@@ -371,7 +353,7 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
 
     # create grading sheet from template
     grade = os.path.join(base, 'grade.yml')
-    sheet = create_sheet(template, sorted(handin['students'], key=lambda u: u.login_id))
+    sheet = vas.create_sheet(template, sorted(handin['students'], key=lambda u: u.login_id))
     if not dump_yaml(grade, sheet.serialize(), f'grading sheet (submission: {name})'):
         error_msg = f'Failed to write grading sheet: {grade}\nSubmission: {name}'
         raise RuntimeError(error_msg)
@@ -393,8 +375,8 @@ def process_handin(item: Tuple[str, Dict[str, Any]], home: str, template: Any, p
                 f'Submission: {name}\n\n'
                 f'Run with --debug for details'
             )
-            print_error(error_msg)
-            print_debug(format_exception_debug(e))
+            con.print_error(error_msg)
+            con.print_debug(con.format_exception_debug(e))
             raise RuntimeError(error_msg) from e
 
 
@@ -446,7 +428,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     canvas = Canvas(api_url, api_key)
     course = canvas.get_course(course_id)
     assignments = sort_by_name(course.get_assignments())
-    index = ask_menu(
+    index = con.ask_menu(
         'Select Assignment', [a.name for a in assignments], default=len(assignments) - 1
     )
     assignment = assignments[index]
@@ -471,7 +453,7 @@ def main(api_url, api_key, args: argparse.Namespace):
     try:
         # --- Phase 1: Fetch and process submissions in parallel (one per student) ---
         processed_results = list(
-            with_progress(
+            con.with_progress(
                 f'Processing {len(student_ids)} submissions',
                 executor.map(
                     lambda sid: process_submission(
@@ -487,7 +469,7 @@ def main(api_url, api_key, args: argparse.Namespace):
         # --- Phase 2: Reduce results to build handins dictionary ---
         for result in processed_results:
             user = result['user']
-            participants.append(create_student(user))
+            participants.append(vas.create_student(user))
             if result['is_empty']:
                 empty_handins.append(user)
             else:
@@ -501,7 +483,7 @@ def main(api_url, api_key, args: argparse.Namespace):
 
         # --- Phase 3: Download handins in parallel ---
         # Use shared Progress to show both overall and per-file progress
-        with create_shared_progress() as progress:
+        with con.create_shared_progress() as progress:
             # Add overall progress task (will appear at top initially)
             overall_task = progress.add_task(
                 f'Downloading {len(handins)} submissions', total=len(handins)
@@ -516,14 +498,14 @@ def main(api_url, api_key, args: argparse.Namespace):
                 progress.update(overall_task, advance=1)
     except Exception as e:
         # Determine error type and show appropriate message
-        print_error('Error occurred during processing of submissions:')
+        con.print_error('Error occurred during processing of submissions:')
 
-        console.print()  # Blank line
-        print_warning('Cancelling pending tasks and waiting for running tasks to complete...')
+        con.print()  # Blank line
+        con.print_warning('Cancelling pending tasks and waiting for running tasks to complete...')
         # Signal all workers to stop (interrupts retry delays)
         cancel_event.set()
         executor.shutdown(wait=True, cancel_futures=True)
-        print_info('Shutdown complete.')
+        con.print_info('Shutdown complete.')
 
         # Check if it's a rate limit error by walking the exception chain
         is_rate_limit = '429' in str(e) or isinstance(e, RateLimitExceeded)
@@ -534,7 +516,7 @@ def main(api_url, api_key, args: argparse.Namespace):
                 current = current.__cause__
 
         if is_rate_limit:
-            print_error(
+            con.print_error(
                 'Canvas API rate limit exceeded.\n'
                 f'Try again in a moment, or use --buffersize with a lower value '
                 f'(currently {buffersize}).'
@@ -543,7 +525,7 @@ def main(api_url, api_key, args: argparse.Namespace):
             error_msg = str(e)
             if e.__cause__:
                 error_msg += f'\nCaused by: {e.__cause__}'
-            print_error(error_msg)
+            con.print_error(error_msg)
 
         raise
     else:
@@ -553,14 +535,14 @@ def main(api_url, api_key, args: argparse.Namespace):
     # --- Final Sequential File Writes ---
     empty_path = os.path.join(path_destination, 'empty.yml')
     empty_data = [
-        create_student(p).serialize() for p in sorted(empty_handins, key=lambda u: u.login_id)
+        vas.create_student(p).serialize() for p in sorted(empty_handins, key=lambda u: u.login_id)
     ]
     dump_yaml(empty_path, empty_data, 'empty submissions list', exit_on_error=True)
 
     meta_path = os.path.join(path_destination, 'meta.yml')
-    meta_data = Meta(
-        course=MetaCourse(course.id, course.name),
-        assignment=MetaAssignment(
+    meta_data = vas.Meta(
+        course=vas.MetaCourse(course.id, course.name),
+        assignment=vas.MetaAssignment(
             assignment.id, assignment.name, section=section.id if section else None
         ),
     )

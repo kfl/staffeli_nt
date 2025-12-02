@@ -4,25 +4,16 @@ import tempfile
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
 
-from .console import (
-    ask_confirm,
-    console,
-    format_exception_debug,
-    print_debug,
-    print_error,
-    print_info,
-    print_success,
-    print_warning,
-)
-from .util import *
-from .vas import *
+from . import console as con
+from .util import download, write_file
+from .vas import GradingSheet, load_gradingsheet, load_meta_or_exit, load_template_or_exit
 
 NAME_SHEET = 'grade.yml'
 
 
 def grade(submission, grade, feedback, dry_run=True):
     # bail if dry
-    print_info(f'Submit: user_id={submission.user_id}, grade={grade}')
+    con.print_info(f'Submit: user_id={submission.user_id}, grade={grade}')
 
     # check if feedback is already uploaded
     duplicate = False
@@ -45,28 +36,28 @@ def grade(submission, grade, feedback, dry_run=True):
 
                 duplicate = duplicate or contents.strip() == feedback.strip()
     except AttributeError as e:
-        print_error(
+        con.print_error(
             f'Unexpected Canvas API response structure\n'
             f'Student ID: {submission.user_id}\n'
             f'Missing field: submission_comments\n\n'
             f'Run with --debug for details'
         )
-        print_debug(
+        con.print_debug(
             f'Missing attribute on submission object\n'
             f'Submission repr: {repr(submission)}\n'
-            f'{format_exception_debug(e)}'
+            f'{con.format_exception_debug(e)}'
         )
 
     # upload feedback if new
     if duplicate:
-        print_info(f'Feedback already uploaded for user_id: {submission.user_id}')
+        con.print_info(f'Feedback already uploaded for user_id: {submission.user_id}')
 
     if dry_run:
-        print_info(f'Would set grade to {grade} for user_id: {submission.user_id}')
+        con.print_info(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
     if not duplicate:
-        print_info(f'Uploading new feedback: {submission.user_id}')
+        con.print_info(f'Uploading new feedback: {submission.user_id}')
         with tempfile.TemporaryDirectory() as c_dir:
             f_path = os.path.join(c_dir, 'feedback.txt')
             with open(f_path, 'w') as f:
@@ -74,7 +65,7 @@ def grade(submission, grade, feedback, dry_run=True):
             submission.upload_comment(f_path)
 
     # set grade
-    print_info(f'Setting grade to {grade} for user_id: {submission.user_id}')
+    con.print_info(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 
@@ -138,14 +129,14 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     # Abort if there are errors in grade sheets
     if error_files:
-        print_error(
+        con.print_error(
             f"""Cannot proceed - {len(error_files)} grade sheet(s) have errors.
 
 Files with errors:"""
         )
         for error_file in error_files:
-            console.print(f'  [error]✗[/error] {error_file}')
-        print_error(
+            con.print(f'  [error]✗[/error] {error_file}')
+        con.print_error(
             """
 Please fix the errors above and try again.
 Run with --debug for detailed error information."""
@@ -156,11 +147,11 @@ Run with --debug for detailed error information."""
     graded = True
     for path, sheet in sheets:
         if not sheet.is_graded(tmpl):
-            print_warning(f'Sheet not graded: {path}')
+            con.print_warning(f'Sheet not graded: {path}')
             graded = False
 
     if graded is False:
-        print_warning('Grading is not complete')
+        con.print_warning('Grading is not complete')
 
     # construct reverse map[user] -> grading sheet
     handins = {}
@@ -177,14 +168,14 @@ Run with --debug for detailed error information."""
 
     if meta.assignment.section is not None:
         section = course.get_section(meta.assignment.section, include=['students', 'enrollments'])
-        print_info(f'Prepare upload for section {section}')
+        con.print_info(f'Prepare upload for section {section}')
 
     if live:
-        console.print(f'[info]Uploading feedback for assignment:[/info] {assignment.name}')
-        if not ask_confirm('Upload feedback for this assignment?'):
+        con.print(f'[info]Uploading feedback for assignment:[/info] {assignment.name}')
+        if not con.ask_confirm('Upload feedback for this assignment?'):
             return
     else:
-        print_info('Doing a dry-run...')
+        con.print_info('Doing a dry-run...')
 
     for stud_id, sheet in handins.items():
         submission = assignment.get_submission(stud_id, include=['submission_comments'])
@@ -197,21 +188,21 @@ Run with --debug for detailed error information."""
         grade(submission, total, tmpl.format_md(sheet), dry_run=not live)
 
         if step:
-            console.print(f'[info]Feedback for {stud_id}:[/info]')
-            console.print(tmpl.format_md(sheet))
-            console.print('-----------------------------------\n')
+            con.print(f'[info]Feedback for {stud_id}:[/info]')
+            con.print(tmpl.format_md(sheet))
+            con.print('-----------------------------------\n')
             input()
-            console.print('\n' * 2)
+            con.print('\n' * 2)
 
     if write_local:
-        print_info('Writing local feedback files')
+        con.print_info('Writing local feedback files')
         for path, sheet in sheets:
             f_path = path.replace('grade.yml', 'feedback.txt')
-            console.print(f'[info]Writing to:[/info] {f_path}')
+            con.print(f'[info]Writing to:[/info] {f_path}')
             write_file(f_path, tmpl.format_md(sheet), 'feedback file')
 
     if warn_missing:
-        console.print('\n[info]Checking if some students are missing grades...[/info]')
+        con.print('\n[info]Checking if some students are missing grades...[/info]')
         all_graded = True
 
         if section:
@@ -231,10 +222,10 @@ Run with --debug for detailed error information."""
                 name = submission.user['short_name']
                 group = ''.join(f'({g})' for g in [submission.group.get('name')] if g)
                 state = submission.workflow_state
-                console.print(f'  Submission for {name} ({submission.user_id}) {group}: {state}')
+                con.print(f'  Submission for {name} ({submission.user_id}) {group}: {state}')
                 all_graded = False
 
         if all_graded:
-            print_success('Looks good')
+            con.print_success('Looks good')
         else:
-            print_warning('Still work to be done')
+            con.print_warning('Still work to be done')

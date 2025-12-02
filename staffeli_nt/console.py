@@ -38,6 +38,12 @@ staffeli_theme = Theme(
 console = Console(theme=staffeli_theme, highlight=False)
 
 
+def print(*args, **kwargs):
+    """General printing. Wrapper for console.print().
+    """
+    console.print(*args, **kwargs)
+
+
 # Global debug state - controlled via set_debug_mode()
 _debug_enabled = False
 
