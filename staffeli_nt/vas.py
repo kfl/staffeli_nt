@@ -246,10 +246,10 @@ class GradingSheet:
         tasks = {task.name: task for task in ass.tasks}
         for sol in self.solutions:
             task = tasks[sol.name]
-            try:
-                total += sol.get_grade(task)
-            except TypeError:
+            grade = sol.get_grade(task)
+            if grade is None:
                 return None
+            total += grade
         if ass.passing_points is not None:
             return 1 if total >= ass.passing_points else 0
         return total

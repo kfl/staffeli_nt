@@ -26,5 +26,11 @@ jobs:
       - name: Install dependencies with dev extras
         run: uv sync --extra dev
 
+      - name: Check with ruff
+        run: uv run ruff check staffeli_nt
+
       - name: Check with mypy
         run: uv run mypy -p staffeli_nt
+
+      - name: Check with pyright
+        run: uv run pyright staffeli_nt

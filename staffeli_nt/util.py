@@ -57,7 +57,7 @@ def dump_yaml(
         return False
 
 
-def download(url, retries=3, delay=1.0):
+def download(url, retries=3, delay=1.0) -> bytes:
     """Download a file from a URL with retry logic for transient failures.
 
     Args:
@@ -71,6 +71,7 @@ def download(url, retries=3, delay=1.0):
     Raises:
         The last exception if all retries are exhausted
     """
+    last_exception = None
     for attempt in range(retries):
         try:
             return requests.get(url).content
@@ -78,11 +79,15 @@ def download(url, retries=3, delay=1.0):
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             requests.exceptions.RequestException,
-        ):
+        ) as e:
+            last_exception = e
             if attempt < retries - 1:
                 time.sleep(delay)
-            else:
-                raise
+
+    # If we get here, all retries failed
+    if last_exception:
+        raise last_exception
+    raise RuntimeError(f'Failed to download {url} after {retries} retries')
 
 
 def download_streaming(

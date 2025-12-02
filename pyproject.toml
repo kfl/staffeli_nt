@@ -22,6 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "mypy>=1.0",
+    "pyright>=1.1.407",
     "types-requests",
     "types-PyYAML",
     "ruff>=0.8.0",
