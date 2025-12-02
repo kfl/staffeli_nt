@@ -3,17 +3,17 @@ import os
 import tempfile
 
 from canvasapi import Canvas  # type: ignore[import-untyped]
-from ruamel.yaml import YAMLError
 
-from .util import *
-from .vas import *
+from . import console as con
+from .util import download, write_file
+from .vas import GradingSheet, load_gradingsheet, load_meta_or_exit, load_template_or_exit
 
 NAME_SHEET = 'grade.yml'
 
 
 def grade(submission, grade, feedback, dry_run=True):
     # bail if dry
-    print('Submit: user_id=%d, grade=%s' % (submission.user_id, grade))
+    con.print_info(f'Submit: user_id={submission.user_id}, grade={grade}')
 
     # check if feedback is already uploaded
     duplicate = False
@@ -35,22 +35,29 @@ def grade(submission, grade, feedback, dry_run=True):
                     contents = ''
 
                 duplicate = duplicate or contents.strip() == feedback.strip()
-    except AttributeError:
-        print(
-            "Internal problem?: It seems that the submission don't have a submission_comments field"
+    except AttributeError as e:
+        con.print_error(
+            f'Unexpected Canvas API response structure\n'
+            f'Student ID: {submission.user_id}\n'
+            f'Missing field: submission_comments\n\n'
+            f'Run with --debug for details'
         )
-        print('   ', repr(submission))
+        con.print_debug(
+            f'Missing attribute on submission object\n'
+            f'Submission repr: {repr(submission)}\n'
+            f'{con.format_exception_debug(e)}'
+        )
 
     # upload feedback if new
     if duplicate:
-        print(f'Feedback already uploaded for user_id: {submission.user_id}')
+        con.print_info(f'Feedback already uploaded for user_id: {submission.user_id}')
 
     if dry_run:
-        print(f'Would set grade to {grade} for user_id: {submission.user_id}')
+        con.print_info(f'Would set grade to {grade} for user_id: {submission.user_id}')
         return
 
     if not duplicate:
-        print('Uploading new feedback:', submission.user_id)
+        con.print_info(f'Uploading new feedback: {submission.user_id}')
         with tempfile.TemporaryDirectory() as c_dir:
             f_path = os.path.join(c_dir, 'feedback.txt')
             with open(f_path, 'w') as f:
@@ -58,7 +65,7 @@ def grade(submission, grade, feedback, dry_run=True):
             submission.upload_comment(f_path)
 
     # set grade
-    print(f'Setting grade to {grade} for user_id: {submission.user_id}')
+    con.print_info(f'Setting grade to {grade} for user_id: {submission.user_id}')
     submission.edit(submission={'posted_grade': grade})
 
 
@@ -100,50 +107,51 @@ def main(api_url, api_key, args: argparse.Namespace):
     warn_missing = args.warn_missing
     write_local = args.write_local and not live
 
-    sheets = []
+    sheets: list[tuple[str, GradingSheet]] = []
 
     meta_file = os.path.join(path_submissions, 'meta.yml')
 
-    with open(meta_file, 'r') as f:
-        meta = parse_meta(f.read())
-
-    with open(path_template, 'r') as f:
-        tmpl = parse_template(f.read())
+    meta = load_meta_or_exit(meta_file)
+    tmpl = load_template_or_exit(path_template)
 
     # fetch every grading sheet
-    error_files = []
+    error_files: list[str] = []
     for root, dirs, files in os.walk(path_submissions, followlinks=True):
         for name in files:
             if name != NAME_SHEET:
                 continue
 
             path = os.path.join(root, name)
-            with open(path, 'r') as f:
-                try:
-                    sheets.append((path, parse_sheet(f.read())))
-                except YAMLError as exc:
-                    print(f'\nFailed to parse {path}:')
-                    print(f'  {exc}\n')
-                    error_files.append(path)
-                except Exception as exc:
-                    print(f'Some error in {path}. Error description: {exc}')
-                    error_files.append(path)
+            if (result := load_gradingsheet(path)) is not None:
+                sheets.append(result)
+            else:
+                error_files.append(path)
 
-    # Aborts if there are syntax errors in the .yml files, and prints offenders
+    # Abort if there are errors in grade sheets
     if error_files:
-        print('There were errors in the following files:')
-        print(*error_files, sep='\n')
-        exit()
+        con.print_error(
+            f"""Cannot proceed - {len(error_files)} grade sheet(s) have errors.
+
+Files with errors:"""
+        )
+        for error_file in error_files:
+            con.print(f'  [error]✗[/error] {error_file}')
+        con.print_error(
+            """
+Please fix the errors above and try again.
+Run with --debug for detailed error information."""
+        )
+        exit(1)
 
     # check that every sheet is complete
     graded = True
     for path, sheet in sheets:
         if not sheet.is_graded(tmpl):
-            print('Sheet not graded:', path)
+            con.print_warning(f'Sheet not graded: {path}')
             graded = False
 
     if graded is False:
-        print('Grading is not complete')
+        con.print_warning('Grading is not complete')
 
     # construct reverse map[user] -> grading sheet
     handins = {}
@@ -160,14 +168,14 @@ def main(api_url, api_key, args: argparse.Namespace):
 
     if meta.assignment.section is not None:
         section = course.get_section(meta.assignment.section, include=['students', 'enrollments'])
-        print(f'Prepare upload for section {section}')
+        con.print_info(f'Prepare upload for section {section}')
 
     if live:
-        print(f'Uploading feedback for assignment: {assignment.name}')
-        choice = input('Sure? (y/n) : ')
-        assert choice.strip() == 'y'
+        con.print(f'[info]Uploading feedback for assignment:[/info] {assignment.name}')
+        if not con.ask_confirm('Upload feedback for this assignment?'):
+            return
     else:
-        print('Doing a dry-run...')
+        con.print_info('Doing a dry-run...')
 
     for stud_id, sheet in handins.items():
         submission = assignment.get_submission(stud_id, include=['submission_comments'])
@@ -180,22 +188,21 @@ def main(api_url, api_key, args: argparse.Namespace):
         grade(submission, total, tmpl.format_md(sheet), dry_run=not live)
 
         if step:
-            print(f'Feedback for {stud_id}: ')
-            print(tmpl.format_md(sheet))
-            print('-----------------------------------\n')
+            con.print(f'[info]Feedback for {stud_id}:[/info]')
+            con.print(tmpl.format_md(sheet))
+            con.print('-----------------------------------\n')
             input()
-            print('\n' * 2)
+            con.print('\n' * 2)
 
     if write_local:
-        print('Writing local')
+        con.print_info('Writing local feedback files')
         for path, sheet in sheets:
             f_path = path.replace('grade.yml', 'feedback.txt')
-            print('writing to: ', f_path)
-            with open(f_path, 'w') as f:
-                f.write(tmpl.format_md(sheet))
+            con.print(f'[info]Writing to:[/info] {f_path}')
+            write_file(f_path, tmpl.format_md(sheet), 'feedback file')
 
     if warn_missing:
-        print('\nChecking if some students are missing grades...')
+        con.print('\n[info]Checking if some students are missing grades...[/info]')
         all_graded = True
 
         if section:
@@ -214,12 +221,11 @@ def main(api_url, api_key, args: argparse.Namespace):
             if submission.workflow_state in ('submitted', 'pending_review'):
                 name = submission.user['short_name']
                 group = ''.join(f'({g})' for g in [submission.group.get('name')] if g)
-                print(
-                    f'  Submission for {name} ({submission.user_id}) {group}: {submission.workflow_state}'
-                )
+                state = submission.workflow_state
+                con.print(f'  Submission for {name} ({submission.user_id}) {group}: {state}')
                 all_graded = False
 
         if all_graded:
-            print('Looks good')
+            con.print_success('Looks good')
         else:
-            print('Still work to be done')
+            con.print_warning('Still work to be done')

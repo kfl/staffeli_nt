@@ -10,8 +10,7 @@ on:
         type: boolean
   push:
     paths:
-      - 'uv.lock'
-      - 'pyproject.toml'
+      - 'flake.nix'
     branches:
       - 'main'
 
@@ -35,7 +34,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update flake.lock
+        id: check_changes
         run: |
+          # Record current HEAD to detect if --commit-lock-file creates a commit
+          BEFORE_HEAD=$(git rev-parse HEAD)
+
           if [ "${{ github.event.inputs.update_deps }}" = "true" ]; then
             echo "Updating Nix dependencies to latest versions..."
             nix flake update --commit-lock-file
@@ -44,13 +47,14 @@ jobs:
             nix flake lock --commit-lock-file
           fi
 
-      - name: Check if flake.lock changed
-        id: check_changes
-        run: |
-          if git diff --quiet HEAD~1 flake.lock; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
+          # Check if a commit was created by comparing HEAD
+          AFTER_HEAD=$(git rev-parse HEAD)
+          if [ "$BEFORE_HEAD" != "$AFTER_HEAD" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "flake.lock has changed - commit created"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to flake.lock - no commit needed"
           fi
 
       - name: Create Pull Request
@@ -59,18 +63,20 @@ jobs:
         with:
           commit-message: "chore: update flake.lock after uv.lock changes"
           title: "Update flake.lock for Nix environment"
-          # base defaults to the branch that triggered the workflow
-          # For push events: main branch
-          # For manual triggers: the branch selected in GitHub UI
+          # Create PR against the branch that triggered the workflow
+          # For push events: PR targets the branch that was pushed to
+          # For manual triggers: PR targets the branch selected in the GitHub UI
+          # Without explicit base, the action defaults to the repository's default branch (main)
+          base: ${{ github.ref_name }}
           body: |
             ## Automated flake.lock update
 
-            This PR updates `flake.lock` in response to changes in `uv.lock` or `pyproject.toml`.
+            This PR updates `flake.lock` in response to changes in `flake.nix`.
 
             ### Changes
             - Ensures `flake.lock` is consistent with current `flake.nix`
-            - Keeps Nix development environment in sync with Python dependencies
-            - Does NOT update nixpkgs/uv2nix versions (use manual trigger for that)
+            - Locks Nix dependencies (nixpkgs, uv2nix, pyproject-nix)
+            - Does NOT update to newer versions of dependencies (use manual trigger with update_deps for that)
 
             ### Review
             - Check that the flake.lock diff looks reasonable

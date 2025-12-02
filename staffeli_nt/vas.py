@@ -1,20 +1,9 @@
 import collections
+import sys
 from typing import Any, List, Optional, Tuple
 
-from ruamel.yaml import YAML
-
-
-def create_yaml():
-    """Create a new YAML instance with standard configuration.
-
-    The ruamel.yaml library is not thread-safe, so each thread should
-    create its own YAML instance when running in parallel.
-    """
-    y = YAML()
-    y.indent(mapping=4, sequence=2, offset=2)
-    y.Representer.add_representer(collections.OrderedDict, y.Representer.represent_dict)
-    return y
-
+from .console import print_warning
+from .util import create_yaml, load_and_parse_yaml
 
 # Global YAML instance for sequential use
 yaml = create_yaml()
@@ -65,7 +54,7 @@ class Assignment:
     def format_md(self, sheet):
         assert isinstance(sheet, GradingSheet)
         if not sheet.is_graded(self):
-            print('trying to format sheet that is not finished graded')
+            print_warning('Trying to format sheet that is not finished graded')
 
         solutions = {}
         for solution in sheet.solutions:
@@ -257,10 +246,10 @@ class GradingSheet:
         tasks = {task.name: task for task in ass.tasks}
         for sol in self.solutions:
             task = tasks[sol.name]
-            try:
-                total += sol.get_grade(task)
-            except TypeError:
+            grade = sol.get_grade(task)
+            if grade is None:
                 return None
+            total += grade
         if ass.passing_points is not None:
             return 1 if total >= ass.passing_points else 0
         return total
@@ -269,7 +258,7 @@ class GradingSheet:
         return self.get_grade(ass) is not None
 
 
-def parse_sheet(data):
+def parse_sheet(data: str) -> GradingSheet:
     def flat(comseq):
         return sum([list(s.items()) for s in comseq], [])
 
@@ -295,6 +284,38 @@ def parse_sheet(data):
     )
 
 
+def load_gradingsheet(path: str) -> tuple[str, GradingSheet] | None:
+    """Load and parse a grade sheet from a file, explaining errors if they occur.
+
+    Returns:
+        (path, sheet) on success, None on failure
+    """
+    if (sheet := load_and_parse_yaml(path, parse_sheet, 'grade sheet')) is not None:
+        return (path, sheet)
+    return None
+
+
+def load_students_and_tas_or_exit(path: str) -> tuple[list[str], list[list[str]]]:
+    """Load and parse TA distribution file, exit on error."""
+    if (result := load_and_parse_yaml(path, parse_students_and_tas, 'TA list')) is None:
+        sys.exit(1)
+    return result
+
+
+def load_meta_or_exit(meta_path: str) -> Meta:
+    """Load and parse meta.yml, exit on error."""
+    if (result := load_and_parse_yaml(meta_path, parse_meta, 'meta.yml')) is None:
+        sys.exit(1)
+    return result
+
+
+def load_template_or_exit(template_path: str) -> Assignment:
+    """Load and parse template file, exit on error."""
+    if (result := load_and_parse_yaml(template_path, parse_template, 'template')) is None:
+        sys.exit(1)
+    return result
+
+
 def create_student(student):
     return Student(id=student.id, name=student.name, login=student.login_id)
 
@@ -317,7 +338,7 @@ def create_sheet(template, students):
     )
 
 
-def parse_meta(data):
+def parse_meta(data: str) -> Meta:
     struct = yaml.load(data)
 
     course = MetaCourse(id=struct['course']['id'], name=struct['course']['name'])
@@ -331,7 +352,7 @@ def parse_meta(data):
     return Meta(course, assignment)
 
 
-def parse_template(data):
+def parse_template(data: str) -> Assignment:
     struct = yaml.load(data)
     tasks = []
     for t in struct['tasks']:

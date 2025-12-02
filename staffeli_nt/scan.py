@@ -1,16 +1,10 @@
 import argparse
 import os
 
-from .vas import *
+from .console import console, print_error, print_success, print_warning
+from .vas import GradingSheet, load_gradingsheet, load_template_or_exit
 
 NAME_SHEET = 'grade.yml'
-
-RED = '\033[91m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-LIGHT_PURPLE = '\033[94m'
-PURPLE = '\033[95m'
-END = '\033[0m'
 
 
 def add_subparser(subparsers: argparse._SubParsersAction):
@@ -30,10 +24,10 @@ def main(api_url, api_key, args: argparse.Namespace):
     path_template = args.path_template
     path_submissions = args.path_submissions
 
-    sheets = []
+    sheets: list[tuple[str, GradingSheet]] = []
+    error_files: list[str] = []
 
-    with open(path_template, 'r') as f:
-        tmpl = parse_template(f.read())
+    tmpl = load_template_or_exit(path_template)
 
     # fetch every grading sheet
     for root, dirs, files in os.walk(path_submissions):
@@ -42,9 +36,26 @@ def main(api_url, api_key, args: argparse.Namespace):
                 continue
 
             path = os.path.join(root, name)
-            # print(path)
-            with open(path, 'r') as f:
-                sheets.append((path, parse_sheet(f.read())))
+            if (result := load_gradingsheet(path)) is not None:
+                sheets.append(result)
+            else:
+                error_files.append(path)
+
+    # Report any files that failed to parse
+    if error_files:
+        print_error(
+            f"""Cannot scan grades - {len(error_files)} file(s) could not be parsed.
+
+Files with errors:"""
+        )
+        for error_file in error_files:
+            console.print(f'  [error]✗[/error] {error_file}')
+        print_error(
+            """
+Please fix the errors above and try again.
+Run with --debug for detailed error information."""
+        )
+        exit(1)
 
     # check that every sheet is complete
     graded = True
@@ -52,16 +63,16 @@ def main(api_url, api_key, args: argparse.Namespace):
     done = 0
     for path, sheet in sheets:
         if not sheet.is_graded(tmpl):
-            print(f'{RED}█{END} {path} is not graded')
+            console.print(f'[error]■[/error] {path} is not graded')
             graded = False
             missing += 1
         else:
             total = sheet.get_grade(tmpl)
             tp = tmpl.total_points
-            print(f'{GREEN}█{END} {total}/{tp} points for {path}')
+            console.print(f'[success]■[/success] {total}/{tp} points for {path}')
             done += 1
 
     if graded is False:
-        print(f'Grading is not complete, {done} done, {missing} missing')
+        print_warning(f'Grading is not complete, {done} done, {missing} missing')
     else:
-        print('Yay, time to upload')
+        print_success('Yay, time to upload')

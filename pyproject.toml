@@ -1,6 +1,6 @@
 [project]
 name = "staffeli-nt"
-version = "0.3.0"
+version = "0.3.1"
 description = "Staffeli NT Technology"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -15,12 +15,14 @@ authors = [
 
 dependencies = [
     "canvasapi>=3.4.0",
+    "rich>=14.2.0",
     "ruamel-yaml>=0.16.10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "mypy>=1.0",
+    "pyright>=1.1.407",
     "types-requests",
     "types-PyYAML",
     "ruff>=0.8.0",
@@ -52,7 +54,6 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]  # pycodestyle errors, pyflakes, isort
-ignore = []
 
 [tool.ruff.format]
 quote-style = "single"
