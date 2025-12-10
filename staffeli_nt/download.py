@@ -214,7 +214,7 @@ def process_submission(
                 if submission.score is None or submission.score < 1.0:
                     files = [s for s in submission.attachments]
                     # tag entire handin
-                    uuid = '-'.join(sorted([a.uuid for a in files]))
+                    uuid = '-'.join(sorted([str(a.id) for a in files]))
                     handin_data = {
                         'files': files,
                         'students': [user],
@@ -226,7 +226,8 @@ def process_submission(
             files = [s for s in submission.attachments]
 
             # tag entire handin
-            uuid = '-'.join(sorted([a.uuid for a in files]))
+            print(files)
+            uuid = '-'.join(sorted([str(a.id) for a in files]))
             handin_data = {
                 'files': files,
                 'students': [user],
