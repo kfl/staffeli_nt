@@ -226,7 +226,6 @@ def process_submission(
             files = [s for s in submission.attachments]
 
             # tag entire handin
-            print(files)
             uuid = '-'.join(sorted([str(a.id) for a in files]))
             handin_data = {
                 'files': files,
