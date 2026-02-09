@@ -59,7 +59,8 @@ def main(api_url, api_key, args: argparse.Namespace):
     live = args.live
 
     meta = load_meta_or_exit(path_meta_yml)
-    if (sheet := load_and_parse_yaml(path_grade_yml, parse_sheet, 'grade sheet')) is None:
+    sheet = load_and_parse_yaml(path_grade_yml, parse_sheet, 'grade sheet')
+    if sheet is None:
         sys.exit(1)
 
     if not (isfile(path_feedback) and access(path_feedback, R_OK)):

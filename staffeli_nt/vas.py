@@ -297,21 +297,24 @@ def load_gradingsheet(path: str) -> tuple[str, GradingSheet] | None:
 
 def load_students_and_tas_or_exit(path: str) -> tuple[list[str], list[list[str]]]:
     """Load and parse TA distribution file, exit on error."""
-    if (result := load_and_parse_yaml(path, parse_students_and_tas, 'TA list')) is None:
+    result = load_and_parse_yaml(path, parse_students_and_tas, 'TA list')
+    if result is None:
         sys.exit(1)
     return result
 
 
 def load_meta_or_exit(meta_path: str) -> Meta:
     """Load and parse meta.yml, exit on error."""
-    if (result := load_and_parse_yaml(meta_path, parse_meta, 'meta.yml')) is None:
+    result = load_and_parse_yaml(meta_path, parse_meta, 'meta.yml')
+    if result is None:
         sys.exit(1)
     return result
 
 
 def load_template_or_exit(template_path: str) -> Assignment:
     """Load and parse template file, exit on error."""
-    if (result := load_and_parse_yaml(template_path, parse_template, 'template')) is None:
+    result = load_and_parse_yaml(template_path, parse_template, 'template')
+    if result is None:
         sys.exit(1)
     return result
 
