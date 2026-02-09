@@ -34,3 +34,5 @@ jobs:
 
       - name: Check with pyright
         run: uv run pyright staffeli_nt
+        env:
+          PYRIGHT_PYTHON_IGNORE_WARNINGS: 1
